@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="SilentBridge 无声桥，面向听障、弱听、临时失语及不便开口人群的 AI 沟通副驾驶。" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%230b0c0b'/%3E%3Cpath d='M13 40c9-15 29-15 38 0' fill='none' stroke='%2379f2c5' stroke-width='6' stroke-linecap='round'/%3E%3Cpath d='M18 29h28' fill='none' stroke='%23ffcf4a' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <title>SilentBridge 无声桥 | AI 听障沟通副驾驶</title>
+  <script>document.documentElement.classList.add("js");</script>
+  <style>
+    :root {
+      --bg: #f8f7ef;
+      --ink: #0b0c0b;
+      --ink-2: #222520;
+      --muted: #686c62;
+      --line: rgba(11, 12, 11, .14);
+      --green: #1d6f52;
+      --mint: #79f2c5;
+      --yellow: #ffcf4a;
+      --coral: #ff6f59;
+      --blue: #3557ff;
+      --panel: #ffffff;
+      --soft: #ede9dc;
+      --shadow: 0 30px 80px rgba(11, 12, 11, .14);
+      --max: 1240px;
+    }
+
+    * { box-sizing: border-box; }
+    html {
+      scroll-behavior: smooth;
+      overflow-x: hidden;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Source Han Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(11,12,11,.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(11,12,11,.045) 1px, transparent 1px);
+      background-size: 36px 36px;
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,.65), rgba(0,0,0,.05));
+    }
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      opacity: .34;
+      background-image: radial-gradient(rgba(11,12,11,.18) .7px, transparent .7px);
+      background-size: 7px 7px;
+      mix-blend-mode: multiply;
+    }
+
+    a { color: inherit; }
+    .skip-link {
+      position: absolute;
+      left: 16px;
+      top: -46px;
+      z-index: 20;
+      padding: 10px 14px;
+      background: var(--ink);
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      transition: top .2s ease;
+    }
+    .skip-link:focus { top: 16px; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 12;
+      border-bottom: 1px solid var(--line);
+      background: rgba(248, 247, 239, .78);
+      backdrop-filter: blur(18px);
+    }
+    .nav {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 14px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+    .mark {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      background: var(--ink);
+      color: var(--mint);
+      border-radius: 6px;
+      font-weight: 950;
+      box-shadow: 5px 5px 0 var(--yellow);
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .nav-links a {
+      text-decoration: none;
+      padding: 5px 0;
+      transition: color .2s ease;
+    }
+    .nav-links a:hover { color: var(--ink); }
+
+    .hero {
+      position: relative;
+      min-height: calc(100dvh - 59px);
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 62px 22px 34px;
+      display: grid;
+      grid-template-columns: minmax(0, .92fr) minmax(420px, .95fr);
+      gap: 56px;
+      align-items: center;
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      right: 18px;
+      top: 86px;
+      width: 154px;
+      height: 154px;
+      background: var(--yellow);
+      transform: rotate(12deg);
+      z-index: -1;
+      animation: floatShape 8s ease-in-out infinite;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      left: min(62vw, 760px);
+      bottom: 54px;
+      width: 112px;
+      height: 112px;
+      border: 18px solid var(--mint);
+      z-index: -1;
+      transform: rotate(-10deg);
+      animation: floatShape 9s ease-in-out infinite reverse;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      width: fit-content;
+      padding: 7px 10px;
+      color: var(--ink);
+      background: var(--mint);
+      border: 2px solid var(--ink);
+      box-shadow: 4px 4px 0 var(--ink);
+      font-size: 13px;
+      font-weight: 950;
+      transform: rotate(-1deg);
+    }
+    h1 {
+      margin: 26px 0 18px;
+      max-width: 720px;
+      font-family: Impact, "Arial Black", "Microsoft YaHei", sans-serif;
+      font-size: clamp(56px, 8.2vw, 118px);
+      line-height: .86;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      text-wrap: balance;
+    }
+    .cn-title {
+      display: block;
+      margin-top: 12px;
+      font-family: "Microsoft YaHei", "Source Han Sans SC", sans-serif;
+      font-size: clamp(42px, 5.7vw, 78px);
+      font-weight: 950;
+      line-height: 1;
+    }
+    .headline-line {
+      display: inline-block;
+      position: relative;
+    }
+    .headline-line::after {
+      content: "";
+      position: absolute;
+      left: 1%;
+      right: 1%;
+      bottom: .08em;
+      height: .18em;
+      background: var(--yellow);
+      z-index: -1;
+      transform: skewX(-12deg);
+    }
+    .hero-subtitle {
+      max-width: 610px;
+      margin: 0;
+      color: var(--ink-2);
+      font-size: clamp(19px, 2vw, 24px);
+      line-height: 1.42;
+      font-weight: 850;
+    }
+    .hero-copy {
+      max-width: 590px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 16px;
+    }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 28px;
+    }
+    .button {
+      appearance: none;
+      border: 2px solid var(--ink);
+      border-radius: 0;
+      padding: 12px 16px;
+      font-size: 15px;
+      font-weight: 950;
+      text-decoration: none;
+      transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+      cursor: pointer;
+    }
+    .button:focus-visible {
+      outline: 3px solid rgba(53, 87, 255, .35);
+      outline-offset: 3px;
+    }
+    .button:active { transform: translate(2px, 2px); box-shadow: none; }
+    .button-primary {
+      background: var(--ink);
+      color: white;
+      box-shadow: 6px 6px 0 var(--mint);
+    }
+    .button-primary:hover { transform: translate(-2px, -2px); box-shadow: 8px 8px 0 var(--mint); }
+    .button-secondary {
+      background: var(--yellow);
+      color: var(--ink);
+      box-shadow: 6px 6px 0 var(--ink);
+    }
+    .button-secondary:hover { transform: translate(-2px, -2px); box-shadow: 8px 8px 0 var(--ink); }
+
+    .tag-wall {
+      margin-top: 30px;
+      max-width: 630px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+    }
+    .tag-wall span {
+      border: 1px solid var(--ink);
+      background: #fff;
+      padding: 7px 10px;
+      font-size: 13px;
+      font-weight: 850;
+    }
+    .tag-wall span:nth-child(2n) { background: var(--soft); }
+    .tag-wall span:nth-child(3n) { background: var(--mint); }
+
+    .motion-stage {
+      position: relative;
+      min-height: 610px;
+      padding: 18px;
+      border: 3px solid var(--ink);
+      background: #fff;
+      box-shadow: 14px 14px 0 var(--ink);
+      overflow: hidden;
+    }
+    .motion-stage::before {
+      content: "";
+      position: absolute;
+      inset: 18px auto auto 18px;
+      width: 64px;
+      height: 64px;
+      background: var(--coral);
+      transform: rotate(9deg);
+      animation: cardPop 4.8s ease-in-out infinite;
+    }
+    .motion-stage::after {
+      content: "";
+      position: absolute;
+      right: 26px;
+      bottom: 28px;
+      width: 116px;
+      height: 38px;
+      border: 3px solid var(--blue);
+      transform: rotate(-4deg);
+      animation: slideMark 5.4s ease-in-out infinite;
+    }
+    .stage-label {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .stage-label b { color: var(--ink); }
+    .app-window {
+      position: relative;
+      z-index: 2;
+      border: 3px solid var(--ink);
+      background: #121613;
+      color: #f8f7ef;
+      min-height: 520px;
+      display: grid;
+      grid-template-rows: 48px 1fr;
+    }
+    .window-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      border-bottom: 2px solid rgba(255,255,255,.13);
+      background: #191f1a;
+    }
+    .dots { display: flex; gap: 7px; }
+    .dots i {
+      width: 10px;
+      height: 10px;
+      display: block;
+      border-radius: 50%;
+      background: rgba(255,255,255,.28);
+    }
+    .mode-switch {
+      color: var(--mint);
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .window-body {
+      display: grid;
+      grid-template-columns: 1fr .86fr;
+      min-height: 470px;
+    }
+    .caption-column {
+      position: relative;
+      overflow: hidden;
+      padding: 20px;
+      border-right: 2px solid rgba(255,255,255,.1);
+      background:
+        linear-gradient(180deg, rgba(121,242,197,.12), transparent 42%),
+        #121613;
+    }
+    .caption-column::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 42%;
+      height: 2px;
+      background: var(--yellow);
+      opacity: .78;
+      animation: scan 3.2s ease-in-out infinite;
+    }
+    .caption-head {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      color: rgba(248,247,239,.54);
+      font-size: 12px;
+      font-weight: 850;
+    }
+    .caption-line {
+      position: relative;
+      margin-bottom: 13px;
+      padding: 13px 14px;
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.08);
+      color: rgba(248,247,239,.88);
+      font-size: 14px;
+      animation: captionIn 5.6s ease-in-out infinite;
+    }
+    .caption-line:nth-of-type(2) { animation-delay: .45s; }
+    .caption-line:nth-of-type(3) { animation-delay: .9s; }
+    .caption-line:nth-of-type(4) { animation-delay: 1.35s; }
+    .caption-line strong {
+      color: var(--mint);
+      margin-right: 8px;
+      font-weight: 950;
+    }
+    .caption-line.active {
+      background: rgba(255,207,74,.14);
+      border-color: rgba(255,207,74,.56);
+    }
+    .assist-column {
+      padding: 18px;
+      background: #f8f7ef;
+      color: var(--ink);
+    }
+    .assist-card {
+      border: 2px solid var(--ink);
+      background: #fff;
+      padding: 13px;
+      margin-bottom: 12px;
+      box-shadow: 5px 5px 0 rgba(11,12,11,.12);
+      animation: noteIn 6.2s ease-in-out infinite;
+    }
+    .assist-card:nth-child(2) { animation-delay: .75s; }
+    .assist-card:nth-child(3) { animation-delay: 1.4s; }
+    .assist-card b {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 950;
+    }
+    .assist-card p {
+      margin: 0;
+      color: var(--ink-2);
+      font-size: 13px;
+      line-height: 1.48;
+    }
+    .assist-card ul {
+      margin: 0;
+      padding-left: 17px;
+      color: var(--ink-2);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .quick-cards {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 9px;
+    }
+    .quick-cards span {
+      display: inline-flex;
+      border: 1px solid var(--ink);
+      background: var(--mint);
+      color: var(--ink);
+      padding: 5px 7px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .stage-footer {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .metric {
+      border: 2px solid var(--ink);
+      background: var(--yellow);
+      padding: 10px;
+      min-height: 72px;
+    }
+    .metric small {
+      display: block;
+      font-size: 11px;
+      font-weight: 950;
+      color: rgba(11,12,11,.66);
+    }
+    .metric strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 18px;
+      line-height: 1.1;
+      font-weight: 950;
+    }
+    .ticker {
+      width: 100%;
+      overflow: hidden;
+      border-block: 3px solid var(--ink);
+      background: var(--ink);
+      color: var(--bg);
+      transform: rotate(-1.2deg);
+      margin: -10px 0 44px;
+    }
+    .ticker-track {
+      display: flex;
+      width: max-content;
+      animation: ticker 26s linear infinite;
+    }
+    .ticker span {
+      display: inline-block;
+      padding: 14px 22px;
+      font-size: clamp(20px, 3vw, 36px);
+      font-family: Impact, "Arial Black", sans-serif;
+      white-space: nowrap;
+      text-transform: uppercase;
+    }
+    .ticker em {
+      color: var(--mint);
+      font-style: normal;
+    }
+
+    main { display: block; }
+    .section {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 82px 22px;
+    }
+    .section-kicker {
+      display: inline-flex;
+      margin-bottom: 14px;
+      padding: 6px 9px;
+      border: 2px solid var(--ink);
+      background: var(--mint);
+      box-shadow: 4px 4px 0 var(--ink);
+      font-size: 12px;
+      font-weight: 950;
+    }
+    h2 {
+      max-width: 900px;
+      margin: 0 0 16px;
+      font-family: Impact, "Arial Black", "Microsoft YaHei", sans-serif;
+      font-size: clamp(38px, 5.5vw, 76px);
+      line-height: .93;
+      letter-spacing: 0;
+      text-wrap: balance;
+    }
+    .lead {
+      max-width: 760px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 17px;
+      font-weight: 650;
+    }
+
+    .problem-grid {
+      margin-top: 36px;
+      display: grid;
+      grid-template-columns: .86fr 1.14fr;
+      gap: 28px;
+      align-items: start;
+    }
+    .quote-block {
+      position: sticky;
+      top: 88px;
+      border: 3px solid var(--ink);
+      background: var(--yellow);
+      padding: 28px;
+      box-shadow: 10px 10px 0 var(--ink);
+      transform: rotate(-1deg);
+    }
+    .quote-block p {
+      margin: 0;
+      font-size: clamp(25px, 3vw, 38px);
+      line-height: 1.15;
+      font-weight: 950;
+    }
+    .quote-block small {
+      display: block;
+      margin-top: 16px;
+      color: rgba(11,12,11,.68);
+      font-weight: 800;
+    }
+    .scenario-list {
+      display: grid;
+      gap: 12px;
+    }
+    .scenario {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 18px;
+      border: 2px solid var(--ink);
+      background: #fff;
+      padding: 16px;
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .scenario:hover {
+      transform: translate(-3px, -3px);
+      box-shadow: 7px 7px 0 var(--ink);
+    }
+    .scenario b {
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 950;
+    }
+    .scenario h3 {
+      margin: 0 0 5px;
+      font-size: 20px;
+      line-height: 1.22;
+    }
+    .scenario p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .feature-board {
+      margin-top: 38px;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 12px;
+    }
+    .feature {
+      position: relative;
+      min-height: 210px;
+      border: 3px solid var(--ink);
+      background: #fff;
+      padding: 18px;
+      overflow: hidden;
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .feature:hover {
+      transform: translate(-3px, -3px) rotate(.25deg);
+      box-shadow: 9px 9px 0 var(--ink);
+    }
+    .feature:nth-child(1) { grid-column: span 7; background: var(--mint); }
+    .feature:nth-child(2) { grid-column: span 5; }
+    .feature:nth-child(3),
+    .feature:nth-child(4),
+    .feature:nth-child(5) { grid-column: span 4; }
+    .feature::after {
+      content: attr(data-num);
+      position: absolute;
+      right: 14px;
+      bottom: -18px;
+      color: rgba(11,12,11,.08);
+      font-family: Impact, "Arial Black", sans-serif;
+      font-size: 104px;
+      line-height: 1;
+    }
+    .feature h3 {
+      position: relative;
+      z-index: 1;
+      margin: 0 0 12px;
+      font-size: 25px;
+      line-height: 1.15;
+    }
+    .feature p {
+      position: relative;
+      z-index: 1;
+      max-width: 560px;
+      margin: 0;
+      color: var(--ink-2);
+      font-size: 15px;
+      font-weight: 650;
+    }
+
+    .demo-reel {
+      margin-top: 38px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .demo-card {
+      min-height: 280px;
+      border: 3px solid var(--ink);
+      padding: 18px;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 7px 7px 0 rgba(11,12,11,.16);
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .demo-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 7px 12px 0 var(--ink);
+    }
+    .demo-card:nth-child(2) { background: var(--soft); }
+    .demo-card:nth-child(3) { background: var(--yellow); }
+    .demo-card:nth-child(4) { background: var(--mint); }
+    .demo-card small {
+      color: var(--green);
+      font-weight: 950;
+      font-size: 12px;
+    }
+    .demo-card h3 {
+      margin: 18px 0 10px;
+      font-size: 25px;
+      line-height: 1.1;
+    }
+    .demo-card p {
+      margin: 0;
+      color: var(--ink-2);
+      font-weight: 650;
+      font-size: 14px;
+    }
+    .mini-timeline {
+      height: 42px;
+      display: grid;
+      grid-template-columns: 1fr 1.4fr .75fr;
+      gap: 5px;
+      margin-top: 18px;
+    }
+    .mini-timeline i {
+      display: block;
+      border: 2px solid var(--ink);
+      background: rgba(255,255,255,.58);
+      animation: barDance 2.6s ease-in-out infinite;
+    }
+    .mini-timeline i:nth-child(2) { animation-delay: .25s; }
+    .mini-timeline i:nth-child(3) { animation-delay: .5s; }
+
+    .public-band {
+      max-width: none;
+      padding: 0;
+      background: var(--ink);
+      color: #fff;
+      border-block: 3px solid var(--ink);
+    }
+    .public-inner {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 86px 22px;
+      display: grid;
+      grid-template-columns: .9fr 1.1fr;
+      gap: 42px;
+      align-items: start;
+    }
+    .public-inner .section-kicker {
+      color: var(--ink);
+      background: var(--yellow);
+    }
+    .public-inner h2 {
+      color: white;
+    }
+    .public-inner .lead {
+      color: rgba(255,255,255,.68);
+    }
+    .public-points {
+      display: grid;
+      gap: 12px;
+    }
+    .public-point {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 14px;
+      border: 2px solid rgba(255,255,255,.22);
+      background: rgba(255,255,255,.06);
+      padding: 16px;
+    }
+    .public-point span {
+      display: grid;
+      place-items: center;
+      width: 40px;
+      height: 40px;
+      background: var(--mint);
+      color: var(--ink);
+      font-weight: 950;
+      border: 2px solid white;
+    }
+    .public-point h3 {
+      margin: 0 0 5px;
+      font-size: 19px;
+      color: white;
+    }
+    .public-point p {
+      margin: 0;
+      color: rgba(255,255,255,.66);
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .roadmap {
+      margin-top: 34px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .phase {
+      border: 3px solid var(--ink);
+      background: #fff;
+      padding: 20px;
+      min-height: 198px;
+      box-shadow: 7px 7px 0 rgba(11,12,11,.14);
+    }
+    .phase small {
+      color: var(--green);
+      font-weight: 950;
+    }
+    .phase h3 {
+      margin: 20px 0 8px;
+      font-size: 23px;
+    }
+    .phase p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 650;
+    }
+    .closing {
+      padding: 78px 22px 58px;
+      text-align: center;
+      border-top: 3px solid var(--ink);
+      background:
+        linear-gradient(135deg, transparent 0 48%, rgba(121,242,197,.44) 48% 55%, transparent 55%),
+        var(--bg);
+    }
+    .closing strong {
+      display: block;
+      max-width: 980px;
+      margin: 0 auto 16px;
+      font-family: Impact, "Arial Black", "Microsoft YaHei", sans-serif;
+      font-size: clamp(32px, 5.2vw, 70px);
+      line-height: .95;
+      text-wrap: balance;
+    }
+    .closing p {
+      margin: 0 auto;
+      max-width: 700px;
+      color: var(--muted);
+      font-weight: 750;
+    }
+
+    @keyframes ticker {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+    @keyframes floatShape {
+      0%, 100% { transform: translateY(0) rotate(12deg); }
+      50% { transform: translateY(-16px) rotate(7deg); }
+    }
+    @keyframes captionIn {
+      0% { opacity: .28; transform: translateY(12px); }
+      12%, 78% { opacity: 1; transform: translateY(0); }
+      100% { opacity: .62; transform: translateY(-3px); }
+    }
+    @keyframes noteIn {
+      0% { transform: translateX(12px); opacity: .55; }
+      18%, 82% { transform: translateX(0); opacity: 1; }
+      100% { transform: translateX(3px); opacity: .75; }
+    }
+    @keyframes scan {
+      0%, 100% { transform: translateY(-88px); opacity: .05; }
+      40%, 60% { opacity: .78; }
+      50% { transform: translateY(94px); }
+    }
+    @keyframes cardPop {
+      0%, 100% { transform: translateY(0) rotate(9deg) scale(1); }
+      50% { transform: translateY(12px) rotate(-4deg) scale(.92); }
+    }
+    @keyframes slideMark {
+      0%, 100% { transform: translateX(0) rotate(-4deg); }
+      50% { transform: translateX(-24px) rotate(3deg); }
+    }
+    @keyframes barDance {
+      0%, 100% { transform: scaleY(.56); transform-origin: bottom; }
+      50% { transform: scaleY(1); transform-origin: bottom; }
+    }
+
+    .js [data-reveal] {
+      opacity: 0;
+      translate: var(--reveal-x, 0) var(--reveal-y, 34px);
+      scale: var(--reveal-scale, 1);
+      rotate: var(--reveal-rotate, 0deg);
+      filter: blur(8px);
+      transition:
+        opacity .78s cubic-bezier(.2, .8, .2, 1),
+        translate .78s cubic-bezier(.2, .8, .2, 1),
+        scale .78s cubic-bezier(.2, .8, .2, 1),
+        rotate .78s cubic-bezier(.2, .8, .2, 1),
+        filter .78s cubic-bezier(.2, .8, .2, 1);
+      transition-delay: var(--reveal-delay, 0ms);
+      will-change: opacity, translate, scale, rotate, filter;
+    }
+    .js [data-reveal="left"] { --reveal-x: -42px; --reveal-y: 18px; }
+    .js [data-reveal="right"] { --reveal-x: 42px; --reveal-y: 18px; }
+    .js [data-reveal="pop"] { --reveal-scale: .92; --reveal-rotate: -1.6deg; }
+    .js [data-reveal="tilt"] { --reveal-y: 26px; --reveal-rotate: 1.8deg; }
+    .js [data-reveal].is-visible {
+      opacity: 1;
+      translate: 0 0;
+      scale: 1;
+      rotate: 0deg;
+      filter: blur(0);
+    }
+    .js .section-kicker[data-reveal] {
+      --reveal-y: 18px;
+      --reveal-rotate: -2deg;
+    }
+    .js .scenario[data-reveal],
+    .js .demo-card[data-reveal],
+    .js .public-point[data-reveal],
+    .js .phase[data-reveal] {
+      transition-duration: .68s;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+      }
+      .js [data-reveal] {
+        opacity: 1;
+        translate: 0 0;
+        scale: 1;
+        rotate: 0deg;
+        filter: none;
+      }
+    }
+
+    @media (max-width: 1040px) {
+      .hero {
+        grid-template-columns: 1fr;
+        min-height: auto;
+        gap: 34px;
+      }
+      .motion-stage { max-width: 760px; }
+      .problem-grid,
+      .public-inner { grid-template-columns: 1fr; }
+      .quote-block { position: static; }
+      .feature:nth-child(1),
+      .feature:nth-child(2),
+      .feature:nth-child(3),
+      .feature:nth-child(4),
+      .feature:nth-child(5) { grid-column: span 6; }
+      .demo-reel,
+      .roadmap { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 720px) {
+      .nav { align-items: flex-start; }
+      .nav-links { display: none; }
+      .hero {
+        padding: 42px 16px 30px;
+      }
+      .hero::before {
+        width: 88px;
+        height: 88px;
+        right: -12px;
+        top: 96px;
+      }
+      .hero::after { display: none; }
+      h1 { font-size: 55px; }
+      .cn-title { font-size: 44px; }
+      .button { width: 100%; text-align: center; }
+      .motion-stage {
+        min-height: auto;
+        padding: 10px;
+        box-shadow: 8px 8px 0 var(--ink);
+      }
+      .app-window { min-height: auto; }
+      .window-body { grid-template-columns: 1fr; }
+      .caption-column {
+        border-right: 0;
+        border-bottom: 2px solid rgba(255,255,255,.12);
+      }
+      .stage-footer { grid-template-columns: 1fr; }
+      .ticker { margin-top: 16px; }
+      .section { padding: 62px 16px; }
+      h2 { font-size: 43px; }
+      .js [data-reveal="left"],
+      .js [data-reveal="right"] {
+        --reveal-x: 0;
+        --reveal-y: 28px;
+      }
+      .scenario { grid-template-columns: 1fr; }
+      .feature-board { grid-template-columns: 1fr; }
+      .feature:nth-child(1),
+      .feature:nth-child(2),
+      .feature:nth-child(3),
+      .feature:nth-child(4),
+      .feature:nth-child(5) { grid-column: auto; }
+      .demo-reel,
+      .roadmap { grid-template-columns: 1fr; }
+      .public-inner { padding: 66px 16px; }
+      .public-point { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到正文</a>
+
+  <header class="topbar">
+    <nav class="nav" aria-label="页面导航">
+      <div class="brand">
+        <div class="mark" aria-hidden="true">S</div>
+        <span>SilentBridge 无声桥</span>
+      </div>
+      <div class="nav-links">
+        <a href="#problem">痛点</a>
+        <a href="#features">功能</a>
+        <a href="#demo">Demo</a>
+        <a href="#public-good">公益价值</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy-block">
+        <div class="eyebrow">TRAE AI 创造力大赛 · 社会服务赛道</div>
+        <h1 id="hero-title"><span class="headline-line">Silent</span><br /><span class="headline-line">Bridge</span><span class="cn-title">无声桥</span></h1>
+        <p class="hero-subtitle">给听障、弱听、临时失语及不便开口的人，一个能看懂重点、确认下一步、从容回应的 AI 沟通副驾驶。</p>
+        <p class="hero-copy">它不只是把声音变成文字，而是在医院、面试、课堂、政务窗口这些关键场景里，把对话变成可理解、可确认、可保存的行动卡片。</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#demo">看 Demo 场景</a>
+          <a class="button button-secondary" href="#public-good">社会公益附加赛题</a>
+        </div>
+        <div class="tag-wall" aria-label="项目标签">
+          <span>实时字幕</span>
+          <span>重点提炼</span>
+          <span>一键回复</span>
+          <span>沟通快捷卡</span>
+          <span>会话摘要</span>
+          <span>数字无障碍</span>
+        </div>
+      </div>
+
+      <div class="motion-stage" aria-label="SilentBridge 产品动态界面示意">
+        <div class="stage-label"><b>LIVE COMMUNICATION CANVAS</b><span>00:42</span></div>
+        <div class="app-window">
+          <div class="window-top">
+            <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="mode-switch">医院问诊模式 · 实时辅助中</div>
+          </div>
+          <div class="window-body">
+            <div class="caption-column">
+              <div class="caption-head"><span>实时字幕流</span><span>ASR + AI</span></div>
+              <div class="caption-line"><strong>医生</strong>这次主要是咽喉炎，先按这个剂量吃三天。</div>
+              <div class="caption-line active"><strong>医生</strong>如果出现胸闷、持续高烧，不能等复诊，要马上来急诊。</div>
+              <div class="caption-line"><strong>用户</strong>我想确认一下复诊时间和用药次数。</div>
+              <div class="caption-line"><strong>系统</strong>正在整理重点，并生成可展示给医生的确认问题。</div>
+            </div>
+            <aside class="assist-column" aria-label="AI 辅助信息">
+              <div class="assist-card">
+                <b>重点提炼</b>
+                <ul>
+                  <li>药物连续服用 3 天，按医嘱剂量执行。</li>
+                  <li>胸闷或持续高烧时，直接前往急诊。</li>
+                  <li>离开前确认复诊日期和每日用药次数。</li>
+                </ul>
+              </div>
+              <div class="assist-card">
+                <b>一键回复建议</b>
+                <p>“我听不见，可以请您帮我确认：每天吃几次、复诊是哪一天、什么情况需要马上来医院？”</p>
+              </div>
+              <div class="assist-card">
+                <b>沟通快捷卡</b>
+                <div class="quick-cards">
+                  <span>请说慢一点</span>
+                  <span>请写关键词</span>
+                  <span>我需要确认时间</span>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+        <div class="stage-footer" aria-label="参赛信息">
+          <div class="metric"><small>主赛道</small><strong>社会服务</strong></div>
+          <div class="metric"><small>附加赛题</small><strong>社会公益</strong></div>
+          <div class="metric"><small>产品定位</small><strong>AI 沟通副驾驶</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="ticker" aria-hidden="true">
+      <div class="ticker-track">
+        <span>REAL-TIME CAPTION</span><span><em>KEY MOMENTS</em></span><span>REPLY DRAFT</span><span>PUBLIC GOOD</span><span>ACCESSIBILITY</span>
+        <span>REAL-TIME CAPTION</span><span><em>KEY MOMENTS</em></span><span>REPLY DRAFT</span><span>PUBLIC GOOD</span><span>ACCESSIBILITY</span>
+      </div>
+    </div>
+
+    <section class="section" id="problem">
+      <span class="section-kicker">真实问题</span>
+      <h2>最难的不是听不见，而是在关键时刻不敢确认。</h2>
+      <p class="lead">普通字幕解决的是“看到文字”。SilentBridge 要解决的是：用户是否真的理解了对方的重点，是否知道下一步该做什么，是否能用得体的方式继续表达。</p>
+
+      <div class="problem-grid">
+        <div class="quote-block">
+          <p>“我不是不会沟通，只是世界说得太快。”</p>
+          <small>这是一款工具要解决的心理压力，也是它的公益价值。</small>
+        </div>
+        <div class="scenario-list">
+          <article class="scenario">
+            <b>医院问诊</b>
+            <div>
+              <h3>医嘱只说一次，错过就可能影响安全。</h3>
+              <p>用药剂量、复诊时间、异常症状处理都需要被清楚记录和确认。</p>
+            </div>
+          </article>
+          <article class="scenario">
+            <b>求职面试</b>
+            <div>
+              <h3>听清问题只是第一步，理解问题意图更关键。</h3>
+              <p>AI 帮用户识别面试官真正想问什么，并组织自然、完整的回答。</p>
+            </div>
+          </article>
+          <article class="scenario">
+            <b>课堂会议</b>
+            <div>
+              <h3>多人发言和快速讨论，让字幕很快变成信息噪声。</h3>
+              <p>系统把发言整理成重点笔记、结论和待办，降低课后复盘成本。</p>
+            </div>
+          </article>
+          <article class="scenario">
+            <b>政务窗口</b>
+            <div>
+              <h3>材料、流程、地点和时限，任何一个没听清都可能白跑。</h3>
+              <p>AI 将口头说明转换为可执行的材料清单和办理步骤。</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <span class="section-kicker">核心功能</span>
+      <h2>从语音转文字，升级为沟通理解与表达辅助。</h2>
+      <p class="lead">第一版 Demo 聚焦五个能力，保证评委可以快速体验，也保证后续可以扩展到真实公共服务场景。</p>
+
+      <div class="feature-board">
+        <article class="feature" data-num="01">
+          <h3>场景化实时字幕</h3>
+          <p>医院、面试、课堂、政务窗口四种模式，按场景突出不同信息：医嘱、问题意图、课堂重点、办理步骤。</p>
+        </article>
+        <article class="feature" data-num="02">
+          <h3>重点提炼卡片</h3>
+          <p>AI 自动从对话中提取结构化重点，让用户不用在高速字幕中自行筛选信息。</p>
+        </article>
+        <article class="feature" data-num="03">
+          <h3>一键回复建议</h3>
+          <p>生成可展示给对方的简短回复，帮助用户确认信息、追问细节、表达需求。</p>
+        </article>
+        <article class="feature" data-num="04">
+          <h3>沟通快捷卡</h3>
+          <p>“请说慢一点”“请写下关键词”“我需要确认费用和时间”等高频表达，一键展示。</p>
+        </article>
+        <article class="feature" data-num="05">
+          <h3>会话结束摘要</h3>
+          <p>自动生成可保存、可分享的摘要，便于复盘，也方便和家人、老师、医生或同事同步。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="demo">
+      <span class="section-kicker">初赛 Demo</span>
+      <h2>1 分钟内让评委看懂：这不是字幕工具，是沟通副驾驶。</h2>
+      <p class="lead">Demo 采用可交互网页形式，通过四个典型任务展示 AI 如何帮助用户理解、确认和回应。</p>
+
+      <div class="demo-reel">
+        <article class="demo-card">
+          <div>
+            <small>SCENE 01</small>
+            <h3>医院问诊</h3>
+            <p>转写医生说明，提炼用药、复诊、异常处理，并生成“请医生确认”的回复。</p>
+          </div>
+          <div class="mini-timeline" aria-hidden="true"><i></i><i></i><i></i></div>
+        </article>
+        <article class="demo-card">
+          <div>
+            <small>SCENE 02</small>
+            <h3>求职面试</h3>
+            <p>识别面试问题意图，生成回答提纲和自然回复，降低临场压力。</p>
+          </div>
+          <div class="mini-timeline" aria-hidden="true"><i></i><i></i><i></i></div>
+        </article>
+        <article class="demo-card">
+          <div>
+            <small>SCENE 03</small>
+            <h3>课堂会议</h3>
+            <p>整理多人发言，生成重点笔记、结论和待办，方便课后复盘。</p>
+          </div>
+          <div class="mini-timeline" aria-hidden="true"><i></i><i></i><i></i></div>
+        </article>
+        <article class="demo-card">
+          <div>
+            <small>SCENE 04</small>
+            <h3>政务窗口</h3>
+            <p>把窗口说明转换为材料清单、办理步骤和下一步确认问题。</p>
+          </div>
+          <div class="mini-timeline" aria-hidden="true"><i></i><i></i><i></i></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section public-band" id="public-good">
+      <div class="public-inner">
+        <div>
+          <span class="section-kicker">社会公益附加赛题</span>
+          <h2>无障碍沟通不该是额外照顾，而应是公共服务默认具备的能力。</h2>
+          <p class="lead">SilentBridge 关注听障、弱听、临时失语及不便开口人群在公共生活中的沟通权利。它的公益价值不止停留在叙事上，而是可以被体验、被部署、被复用的 AI 工具。</p>
+        </div>
+        <div class="public-points">
+          <article class="public-point">
+            <span>1</span>
+            <div>
+              <h3>降低特殊群体参与社会的隐形门槛</h3>
+              <p>帮助用户在就医、求职、学习、办事等关键场景里更平等地获取信息和表达自己。</p>
+            </div>
+          </article>
+          <article class="public-point">
+            <span>2</span>
+            <div>
+              <h3>提升公共服务的无障碍能力</h3>
+              <p>医生、老师、窗口人员和面试官也能借助结构化字幕、快捷卡和摘要更高效地沟通。</p>
+            </div>
+          </article>
+          <article class="public-point">
+            <span>3</span>
+            <div>
+              <h3>推动数字无障碍从口号变成产品</h3>
+              <p>让公益主题具备可交互 Demo、真实使用场景和可持续落地路径。</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <span class="section-kicker">后续计划</span>
+      <h2>从报名方案到初赛 Demo，再到真实场景落地。</h2>
+      <p class="lead">开发过程中将保留 TRAE Session ID、关键截图和版本迭代记录，满足初赛提交要求。</p>
+
+      <div class="roadmap">
+        <article class="phase">
+          <small>PHASE 1 · 报名</small>
+          <h3>创意方案 HTML</h3>
+          <p>明确主赛道、公益附加赛题、用户痛点、核心功能和 Demo 方向。</p>
+        </article>
+        <article class="phase">
+          <small>PHASE 2 · 初赛</small>
+          <h3>可交互网页 Demo</h3>
+          <p>完成四个场景模拟，让评委实际体验 AI 如何辅助关键对话。</p>
+        </article>
+        <article class="phase">
+          <small>PHASE 3 · 复赛</small>
+          <h3>真实能力增强</h3>
+          <p>接入语音识别、场景模板、摘要导出和无障碍交互，形成可落地原型。</p>
+        </article>
+      </div>
+    </section>
+
+    <footer class="closing">
+      <strong>不是让听障者适应嘈杂世界，而是让世界学会把重要的话说清楚。</strong>
+      <p>SilentBridge 无声桥 · AI 听障沟通副驾驶 · 社会服务赛道 · 社会公益附加赛题</p>
+    </footer>
+  </main>
+  <script>
+    (() => {
+      const revealGroups = [
+        [".section-kicker, .section h2, .section .lead", "left"],
+        [".quote-block", "pop"],
+        [".scenario", "right"],
+        [".feature", "tilt"],
+        [".demo-card", "pop"],
+        [".public-inner h2, .public-inner .lead", "left"],
+        [".public-point", "right"],
+        [".phase", "pop"],
+        [".closing strong, .closing p", "pop"]
+      ];
+
+      revealGroups.forEach(([selector, type]) => {
+        document.querySelectorAll(selector).forEach((element, index) => {
+          element.dataset.reveal = type;
+          element.style.setProperty("--reveal-delay", `${Math.min(index % 6, 5) * 85}ms`);
+        });
+      });
+
+      if (!("IntersectionObserver" in window)) {
+        document.querySelectorAll("[data-reveal]").forEach((element) => element.classList.add("is-visible"));
+        return;
+      }
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        });
+      }, {
+        threshold: 0.18,
+        rootMargin: "0px 0px -10% 0px"
+      });
+
+      document.querySelectorAll("[data-reveal]").forEach((element) => observer.observe(element));
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "silentbridge-demo",
+  "private": true,
+  "version": "1.0.0",
+  "description": "SilentBridge 无声桥 - AI 听障沟通副驾驶 初赛 Demo",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @silentbridge/web dev",
+    "build": "pnpm --filter @silentbridge/web build",
+    "preview": "pnpm --filter @silentbridge/web preview",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
