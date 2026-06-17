@@ -1,4 +1,4 @@
-﻿import type { Scenario, ScenarioId } from "./scenario-types";
+import type { Scenario, ScenarioId, CommunicationContext, CommunicationDomain, RiskLevel, TranscriptLine } from "./scenario-types";
 
 export const scenarios: Record<ScenarioId, Scenario> = {
   "medical": {
@@ -273,4 +273,126 @@ export const scenarioIds: ScenarioId[] = ["medical", "interview", "classroom", "
 
 export function getScenario(id: ScenarioId): Scenario {
   return scenarios[id];
+}
+
+export const dailyLifeFallbackTranscript: TranscriptLine[] = [
+  {
+    id: "t1",
+    speaker: "system",
+    speakerLabel: "对方",
+    text: "您好，请问有什么可以帮您的吗？",
+    emphasis: false,
+    timestamp: "00:01"
+  },
+  {
+    id: "t2",
+    speaker: "system",
+    speakerLabel: "对方",
+    text: "请告诉我您的具体需求，我会尽力协助。",
+    emphasis: false,
+    timestamp: "00:04"
+  },
+  {
+    id: "t3",
+    speaker: "system",
+    speakerLabel: "对方",
+    text: "如果您有任何疑问，可以随时问我。",
+    emphasis: false,
+    timestamp: "00:07"
+  }
+];
+
+function scenarioIdToDomain(id: ScenarioId): CommunicationDomain {
+  switch (id) {
+    case "medical":
+      return "medical";
+    case "interview":
+      return "work";
+    case "classroom":
+      return "education";
+    case "public-service":
+      return "public-service";
+    default:
+      return "custom";
+  }
+}
+
+function scenarioIdToRiskLevel(id: ScenarioId): RiskLevel {
+  switch (id) {
+    case "medical":
+      return "critical";
+    case "public-service":
+      return "attention";
+    default:
+      return "normal";
+  }
+}
+
+function scenarioIdToRole(id: ScenarioId): string {
+  switch (id) {
+    case "medical":
+      return "医生";
+    case "interview":
+      return "面试官";
+    case "classroom":
+      return "老师";
+    case "public-service":
+      return "工作人员";
+    default:
+      return "对方";
+  }
+}
+
+export function createContextFromScenario(id: ScenarioId): CommunicationContext {
+  const scenario = scenarios[id];
+  return {
+    id: `preset-${id}`,
+    domain: scenarioIdToDomain(id),
+    title: scenario.name,
+    counterpartRole: scenarioIdToRole(id),
+    userGoal: scenario.userGoal,
+    userNeed: "understand",
+    riskLevel: scenarioIdToRiskLevel(id),
+    assistModes: ["caption", "big-text", "confirm"],
+    source: "preset"
+  };
+}
+
+export function createCustomContext(input: string): CommunicationContext {
+  let domain: CommunicationDomain = "custom";
+  let riskLevel: RiskLevel = "normal";
+  let role = "对方";
+
+  const medicalKeywords = ["药", "医生", "医院", "复查", "发烧", "看病", "诊断", "复诊", "急诊"];
+  const moneyKeywords = ["钱", "费用", "证件", "办理", "银行", "缴费", "支付"];
+
+  if (medicalKeywords.some(kw => input.includes(kw))) {
+    domain = "medical";
+    riskLevel = "critical";
+    role = "医生";
+  } else if (moneyKeywords.some(kw => input.includes(kw))) {
+    domain = "public-service";
+    riskLevel = "attention";
+    role = "工作人员";
+  } else if (input.includes("面试") || input.includes("工作") || input.includes("求职")) {
+    domain = "work";
+    role = "面试官";
+  } else if (input.includes("老师") || input.includes("上课") || input.includes("考试") || input.includes("学习")) {
+    domain = "education";
+    role = "老师";
+  } else {
+    domain = "daily-life";
+  }
+
+  return {
+    id: `custom-${Date.now()}`,
+    domain,
+    title: input.length > 30 ? input.substring(0, 30) + "..." : input,
+    counterpartRole: role,
+    userGoal: "完成当前沟通任务",
+    userNeed: "express",
+    riskLevel,
+    assistModes: ["caption", "big-text", "confirm"],
+    source: "custom"
+  };
 }

@@ -1,11 +1,23 @@
-﻿export type {
+export type {
   ScenarioId,
   TranscriptLine,
   InsightCard,
   ReplySuggestion,
   QuickCard,
   ConversationSummary,
-  Scenario
+  Scenario,
+  CommunicationDomain,
+  UserNeed,
+  RiskLevel,
+  AssistMode,
+  CommunicationContext
 } from "./scenarios/scenario-types";
 
-export { scenarios, scenarioIds, getScenario } from "./scenarios/scenario-data";
+export {
+  scenarios,
+  scenarioIds,
+  getScenario,
+  dailyLifeFallbackTranscript,
+  createContextFromScenario,
+  createCustomContext
+} from "./scenarios/scenario-data";

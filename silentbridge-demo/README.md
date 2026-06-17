@@ -1,4 +1,4 @@
-﻿﻿# SilentBridge 无声桥
+﻿﻿﻿﻿﻿﻿﻿# SilentBridge 无声桥
 
 > AI 听障沟通副驾驶
 
@@ -49,12 +49,12 @@ silentbridge-demo/
 ## 阶段计划
 
 - **Phase 01**: 项目骨架
-- **Phase 02**: 场景数据和类型
-- **Phase 03**: 核心交互
+- **Phase 02**: 开放式沟通任务原型
+- **Phase 03**: 摘要生成和完整交互
 - **Phase 04**: 视觉和动效
 - **Phase 05**: 证据链和导出
 - **Phase 06**: 可选 Agent 层
 
 ## 合规说明
 
-本项目由 TRAE IDE 创建和修改，所有代码变更记录在 TRAE 任务历史中。
+本项目保留阶段开发记录、Session ID、过程截图和 Git 提交记录。

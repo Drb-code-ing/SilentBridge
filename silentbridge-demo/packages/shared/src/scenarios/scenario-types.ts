@@ -1,4 +1,41 @@
-﻿export type ScenarioId = "medical" | "interview" | "classroom" | "public-service";
+export type ScenarioId = "medical" | "interview" | "classroom" | "public-service";
+
+export type CommunicationDomain =
+  | "medical"
+  | "work"
+  | "education"
+  | "public-service"
+  | "daily-life"
+  | "custom";
+
+export type UserNeed =
+  | "understand"
+  | "express"
+  | "confirm"
+  | "summarize";
+
+export type RiskLevel =
+  | "normal"
+  | "attention"
+  | "critical";
+
+export type AssistMode =
+  | "caption"
+  | "big-text"
+  | "confirm"
+  | "summary";
+
+export interface CommunicationContext {
+  id: string;
+  domain: CommunicationDomain;
+  title: string;
+  counterpartRole: string;
+  userGoal: string;
+  userNeed: UserNeed;
+  riskLevel: RiskLevel;
+  assistModes: AssistMode[];
+  source: "preset" | "custom";
+}
 
 export interface TranscriptLine {
   id: string;
