@@ -1,149 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-
-type AppTab = "home" | "bridge" | "records" | "phrases";
-type BridgeStep = "show" | "listen" | "saved";
-
-interface CaptionLine {
-  id: string;
-  speaker: string;
-  text: string;
-  time: string;
-  important?: boolean;
-}
-
-interface QuickScenario {
-  id: string;
-  title: string;
-  helper: string;
-  message: string;
-  style: "sky" | "sun" | "mint";
-}
-
-interface RecordItem {
-  id: string;
-  title: string;
-  place: string;
-  time: string;
-  summary: string;
-  nextStep: string;
-  keyPoints: string[];
-  actionPhrase: string;
-}
-
-interface Phrase {
-  id: string;
-  text: string;
-  intent: string;
-}
-
-interface PhrasePack {
-  id: string;
-  title: string;
-  description: string;
-  phrases: Phrase[];
-}
-
-const defaultMessage = "我听不见，但可以看文字。请说慢一点。";
-
-const quickScenarios: QuickScenario[] = [
-  {
-    id: "pharmacy",
-    title: "药店问药",
-    helper: "药名、用量、禁忌",
-    message: "我听不清，请帮我写下药名、用量和不能一起吃的东西。",
-    style: "mint"
-  },
-  {
-    id: "service",
-    title: "窗口办事",
-    helper: "材料、排队、下一步",
-    message: "我需要确认要交哪些材料，请把关键步骤写下来。",
-    style: "sun"
-  },
-  {
-    id: "traffic",
-    title: "临时问路",
-    helper: "方向、站台、换乘",
-    message: "我听不见，请告诉我应该去哪个方向或哪个站台。",
-    style: "sky"
-  }
-];
-
-const captionLines: CaptionLine[] = [
-  {
-    id: "caption-1",
-    speaker: "店员",
-    text: "这个药饭后吃，一天两次，早晚各一次。",
-    time: "00:01",
-    important: true
-  },
-  {
-    id: "caption-2",
-    speaker: "店员",
-    text: "不要和酒一起服用，如果已经在吃其他药，最好先问医生。",
-    time: "00:05",
-    important: true
-  },
-  {
-    id: "caption-3",
-    speaker: "店员",
-    text: "如果吃完后明显不舒服，就先停用，并尽快咨询医生。",
-    time: "00:09"
-  }
-];
-
-const initialRecords: RecordItem[] = [
-  {
-    id: "record-pharmacy",
-    title: "药店问药",
-    place: "社区药房",
-    time: "今天 14:26",
-    summary: "已确认饭后服用、一天两次、不能与酒同服。",
-    nextStep: "服用后如明显不适，先停用并咨询医生。",
-    keyPoints: ["饭后服用", "早晚各一次", "避免饮酒", "不适时先停用"],
-    actionPhrase: "请再帮我写下药名、用量和注意事项。"
-  },
-  {
-    id: "record-service",
-    title: "证件补办咨询",
-    place: "街道政务窗口",
-    time: "昨天 10:18",
-    summary: "需要身份证原件、近期照片，现场取号后到 3 号窗口办理。",
-    nextStep: "明天上午带齐材料，先取号再排队。",
-    keyPoints: ["身份证原件", "一寸照片", "3 号窗口", "上午办理"],
-    actionPhrase: "我想确认还缺哪一项材料，请写给我。"
-  }
-];
-
-const phrasePacks: PhrasePack[] = [
-  {
-    id: "first",
-    title: "先说明",
-    description: "先让对方知道怎么配合。",
-    phrases: [
-      { id: "first-1", text: "我听不见，但可以看文字。请说慢一点。", intent: "说明状态" },
-      { id: "first-2", text: "请把关键词写下来给我看。", intent: "请对方写" },
-      { id: "first-3", text: "我没有听懂，可以换一种方式说吗？", intent: "请求复述" }
-    ]
-  },
-  {
-    id: "confirm",
-    title: "再确认",
-    description: "把容易听错的信息单独确认。",
-    phrases: [
-      { id: "confirm-1", text: "请写下时间、地点和下一步。", intent: "确认三要素" },
-      { id: "confirm-2", text: "请写下药名、用量、一天几次。", intent: "确认用药" },
-      { id: "confirm-3", text: "我需要补交哪些材料？", intent: "确认材料" }
-    ]
-  }
-];
-
-const tabLabels: Record<AppTab, { label: string; mark: string }> = {
-  home: { label: "首页", mark: "首" },
-  bridge: { label: "开桥", mark: "桥" },
-  records: { label: "记录", mark: "记" },
-  phrases: { label: "话术", mark: "句" }
-};
+import {
+  defaultFlowId,
+  defaultMessage,
+  demoFlows,
+  initialRecords,
+  phrasePacks,
+  quickScenarios,
+  tabLabels,
+  type AppTab,
+  type BridgeStep,
+  type CaptionLine,
+  type DemoFlowId,
+  type Phrase,
+  type QuickScenario,
+  type RecordItem
+} from "./demo-content";
 
 function Mascot() {
   return (
@@ -240,13 +111,12 @@ function HomeView({
 function ProgressDots({ step }: { step: BridgeStep }) {
   const steps: Array<{ id: BridgeStep; label: string }> = [
     { id: "show", label: "给对方看" },
-    { id: "listen", label: "听对方说" },
-    { id: "saved", label: "留下重点" }
+    { id: "listen", label: "听对方说" }
   ];
   const activeIndex = steps.findIndex((item) => item.id === step);
 
   return (
-    <div className="sb-progress" aria-label="沟通步骤">
+    <div className="sb-progress sb-progress--two" aria-label="沟通步骤">
       {steps.map((item, index) => (
         <div
           className={index <= activeIndex ? "sb-progress__item is-active" : "sb-progress__item"}
@@ -307,54 +177,37 @@ function CaptionPanel({
   );
 }
 
-function SavedPanel({ record, onOpenRecord }: { record: RecordItem; onOpenRecord: () => void }) {
-  return (
-    <section className="sb-saved-panel">
-      <div className="sb-sticker">已保存</div>
-      <h2>{record.title}</h2>
-      <p>{record.summary}</p>
-      <div className="sb-chip-grid">
-        {record.keyPoints.map((point) => (
-          <span key={point}>{point}</span>
-        ))}
-      </div>
-      <button type="button" className="sb-secondary-button" onClick={onOpenRecord}>
-        去记录里看看
-      </button>
-    </section>
-  );
-}
-
 function BridgeView({
   step,
   message,
+  sourceLabel,
+  summaryHighlight,
   visibleCaptions,
   isCapturing,
-  currentRecord,
+  expectedCaptionCount,
   onStartListening,
   onSave,
-  onOpenPhrases,
-  onOpenRecord,
-  onRestart
+  onOpenPhrases
 }: {
   step: BridgeStep;
   message: string;
+  sourceLabel: string;
+  summaryHighlight: string;
   visibleCaptions: CaptionLine[];
   isCapturing: boolean;
-  currentRecord: RecordItem;
+  expectedCaptionCount: number;
   onStartListening: () => void;
   onSave: () => void;
   onOpenPhrases: () => void;
-  onOpenRecord: () => void;
-  onRestart: () => void;
 }) {
-  const captionsDone = visibleCaptions.length >= captionLines.length && !isCapturing;
+  const captionsDone = visibleCaptions.length >= expectedCaptionCount && !isCapturing;
 
   return (
     <div className="sb-view">
       <section className="sb-bridge-head">
         <p className="sb-kicker">现场沟通</p>
         <h1>一步一步来，不急。</h1>
+        <p className="sb-bridge-source">当前话术：{sourceLabel}</p>
       </section>
 
       <ProgressDots step={step} />
@@ -379,7 +232,7 @@ function BridgeView({
           {captionsDone && (
             <div className="sb-summary-card">
               <span>小桥抓到的重点</span>
-              <strong>饭后吃，一天两次，不要和酒一起服用。</strong>
+              <strong>{summaryHighlight}</strong>
             </div>
           )}
           <div className="sb-bridge-actions">
@@ -397,15 +250,6 @@ function BridgeView({
           </div>
         </section>
       )}
-
-      {step === "saved" && (
-        <section className="sb-bridge-stage">
-          <SavedPanel record={currentRecord} onOpenRecord={onOpenRecord} />
-          <button type="button" className="sb-secondary-button" onClick={onRestart}>
-            再开一次沟通
-          </button>
-        </section>
-      )}
     </div>
   );
 }
@@ -413,15 +257,18 @@ function BridgeView({
 function RecordsView({
   records,
   selectedRecordId,
+  justSavedRecordId,
   onSelectRecord,
   onContinue
 }: {
   records: RecordItem[];
   selectedRecordId: string;
+  justSavedRecordId?: string;
   onSelectRecord: (id: string) => void;
   onContinue: (record: RecordItem) => void;
 }) {
   const selectedRecord = records.find((record) => record.id === selectedRecordId) ?? records[0];
+  const showSavedNote = Boolean(justSavedRecordId && justSavedRecordId === selectedRecord.id);
 
   return (
     <div className="sb-view">
@@ -446,6 +293,9 @@ function RecordsView({
       </section>
 
       <section className="sb-record-detail">
+        {showSavedNote && (
+          <div className="sb-record-saved-note">刚刚已保存，可以回看重点，也可以继续追问。</div>
+        )}
         <div className="sb-sticker">重点</div>
         <h2>{selectedRecord.title}</h2>
         <p>{selectedRecord.summary}</p>
@@ -459,7 +309,7 @@ function RecordsView({
           <strong>{selectedRecord.nextStep}</strong>
         </div>
         <button type="button" className="sb-primary-button" onClick={() => onContinue(selectedRecord)}>
-          继续这次沟通
+          用这条记录继续问
         </button>
       </section>
     </div>
@@ -537,34 +387,57 @@ export function DemoPage() {
   const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [bridgeStep, setBridgeStep] = useState<BridgeStep>("show");
   const [displayMessage, setDisplayMessage] = useState(defaultMessage);
+  const [bridgeSourceLabel, setBridgeSourceLabel] = useState("默认开场白");
+  const [activeFlowId, setActiveFlowId] = useState<DemoFlowId>(defaultFlowId);
   const [visibleCaptions, setVisibleCaptions] = useState<CaptionLine[]>([]);
   const [isCapturing, setIsCapturing] = useState(false);
   const [records, setRecords] = useState<RecordItem[]>(initialRecords);
   const [selectedRecordId, setSelectedRecordId] = useState(initialRecords[0].id);
   const [activePhraseId, setActivePhraseId] = useState<string>();
-  const [currentRecord, setCurrentRecord] = useState<RecordItem>(initialRecords[0]);
+  const [justSavedRecordId, setJustSavedRecordId] = useState<string>();
 
+  const activeFlow = demoFlows[activeFlowId];
   const latestRecord = useMemo(() => records[0], [records]);
 
   useEffect(() => {
+    const activeCaptions = activeFlow.captions;
+
     if (!isCapturing) {
       return;
     }
 
-    if (visibleCaptions.length >= captionLines.length) {
+    if (visibleCaptions.length >= activeCaptions.length) {
       setIsCapturing(false);
       return;
     }
 
     const timer = window.setTimeout(() => {
-      setVisibleCaptions((previousLines) => [...previousLines, captionLines[previousLines.length]]);
+      setVisibleCaptions((previousLines) => [...previousLines, activeCaptions[previousLines.length]]);
     }, 720);
 
     return () => window.clearTimeout(timer);
-  }, [isCapturing, visibleCaptions.length]);
+  }, [activeFlow.captions, isCapturing, visibleCaptions.length]);
 
-  const openBridge = (message = defaultMessage) => {
+  useEffect(() => {
+    if (!justSavedRecordId) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setJustSavedRecordId(undefined);
+    }, 2600);
+
+    return () => window.clearTimeout(timer);
+  }, [justSavedRecordId]);
+
+  const openBridge = (
+    message = defaultMessage,
+    sourceLabel = "默认开场白",
+    flowId: DemoFlowId = defaultFlowId
+  ) => {
     setDisplayMessage(message);
+    setBridgeSourceLabel(sourceLabel);
+    setActiveFlowId(flowId);
     setVisibleCaptions([]);
     setIsCapturing(false);
     setBridgeStep("show");
@@ -579,30 +452,30 @@ export function DemoPage() {
 
   const saveCurrentRecord = () => {
     const savedRecord: RecordItem = {
-      id: `record-${Date.now()}`,
-      title: "刚刚的现场沟通",
-      place: "药店柜台",
+      ...activeFlow.savedRecord,
+      id: `record-${activeFlowId}-${Date.now()}`,
       time: "刚刚",
-      summary: "已保存饭后服用、一天两次、不能与酒同服。",
-      nextStep: "如服用后明显不适，先停用并咨询医生。",
-      keyPoints: ["饭后服用", "早晚各一次", "避免饮酒", "不适时咨询医生"],
-      actionPhrase: "请把药名和用量再写一遍，我要保存。"
     };
 
-    setCurrentRecord(savedRecord);
     setRecords((currentRecords) => [savedRecord, ...currentRecords]);
     setSelectedRecordId(savedRecord.id);
-    setBridgeStep("saved");
+    setJustSavedRecordId(savedRecord.id);
+    setIsCapturing(false);
+    setVisibleCaptions([]);
+    setBridgeStep("show");
+    setActiveTab("records");
   };
 
   const handlePickScenario = (scenario: QuickScenario) => {
     setActivePhraseId(undefined);
-    openBridge(scenario.message);
+    setJustSavedRecordId(undefined);
+    openBridge(scenario.message, scenario.title, scenario.id);
   };
 
   const handleUsePhrase = (phrase: Phrase) => {
     setActivePhraseId(phrase.id);
-    openBridge(phrase.text);
+    setJustSavedRecordId(undefined);
+    openBridge(phrase.text, phrase.intent, "generic");
   };
 
   const handleOpenRecord = (id: string) => {
@@ -612,7 +485,8 @@ export function DemoPage() {
 
   const handleContinueRecord = (record: RecordItem) => {
     setActivePhraseId(undefined);
-    openBridge(record.actionPhrase);
+    setJustSavedRecordId(undefined);
+    openBridge(record.actionPhrase, record.title, record.flowId);
   };
 
   const renderActiveView = () => {
@@ -620,7 +494,7 @@ export function DemoPage() {
       return (
         <HomeView
           latestRecord={latestRecord}
-          onStart={() => openBridge(defaultMessage)}
+          onStart={() => openBridge(defaultMessage, "药店问药", defaultFlowId)}
           onPickScenario={handlePickScenario}
           onOpenRecord={handleOpenRecord}
           onOpenPhrases={() => setActiveTab("phrases")}
@@ -633,14 +507,14 @@ export function DemoPage() {
         <BridgeView
           step={bridgeStep}
           message={displayMessage}
+          sourceLabel={bridgeSourceLabel}
+          summaryHighlight={activeFlow.summaryHighlight}
           visibleCaptions={visibleCaptions}
           isCapturing={isCapturing}
-          currentRecord={currentRecord}
+          expectedCaptionCount={activeFlow.captions.length}
           onStartListening={startListening}
           onSave={saveCurrentRecord}
           onOpenPhrases={() => setActiveTab("phrases")}
-          onOpenRecord={() => handleOpenRecord(selectedRecordId)}
-          onRestart={() => openBridge(defaultMessage)}
         />
       );
     }
@@ -650,6 +524,7 @@ export function DemoPage() {
         <RecordsView
           records={records}
           selectedRecordId={selectedRecordId}
+          justSavedRecordId={justSavedRecordId}
           onSelectRecord={setSelectedRecordId}
           onContinue={handleContinueRecord}
         />

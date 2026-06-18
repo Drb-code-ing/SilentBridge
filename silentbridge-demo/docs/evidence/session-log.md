@@ -260,3 +260,33 @@ Phase 04 - LLM 集成和真实语音识别
 
 ### 下一阶段计划
 Phase 05 - 真实语音识别、转写和 AI 摘要链路
+
+---
+
+## Phase 09 - Logic Closure
+
+- Time: 2026-06-18
+- Goal: Close the mobile demo flow from home to communication, saved record, history review, and continue conversation.
+- Changes:
+  - Split demo constants and types into demo-content.ts.
+  - Removed saved-only intermediate bridge step.
+  - Saved conversations now navigate directly to selected record detail.
+  - Record continue and phrase selection now return to bridge with clear source labels.
+  - Added scenario-specific flow data so pharmacy, service, traffic, and generic phrase paths use matching captions and saved records.
+  - Increased mobile bottom spacing around bridge actions.
+  - Added Phase 09 screenshots.
+  - Archived Phase 09 execution and completion evidence screenshots.
+- Verification:
+  - Private Phase 09 logic closure regression check: passed
+  - pnpm --filter @silentbridge/web typecheck: passed
+  - pnpm build: passed
+  - 390px and 360px browser checks: passed
+  - Service scenario browser check no longer shows pharmacy captions: passed
+- Evidence:
+  - assets/11-phase09-home-390.png
+  - assets/12-phase09-bridge-listen-390.png
+  - assets/13-phase09-record-saved-390.png
+  - assets/14-phase09-phrase-to-bridge-360.png
+  - assets/15-trae-phase09-plan-execution.png
+  - assets/16-trae-phase09-completion-summary.png
+  - assets/17-phase09-service-flow-390.png
