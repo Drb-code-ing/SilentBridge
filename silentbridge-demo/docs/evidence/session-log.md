@@ -4,7 +4,7 @@
 SilentBridge 无声桥
 
 ## 当前阶段
-Phase 02 - Open Communication Engine
+Phase 04 - Mobile App Entry Architecture
 
 ---
 
@@ -118,3 +118,145 @@ Phase 02 - Open Communication Engine
 
 ### 下一阶段计划
 Phase 03 - LLM 集成和完整交互功能
+
+---
+
+## Phase 03 - Field Flow Redesign
+
+### TRAE Session ID
+.986734319122016:8a34241baa9c622d657166e5f0400071_6a30e64c9681639827a47889.6a33dc59f5aca5c0831b7127.6a33dc58a18af993389b3348:Trae CN.T(2026/6/18 19:54:01)
+
+### 创建时间
+2026-06-18
+
+### 执行目标
+将初赛 demo 从"功能集合页"重构为"评委三秒能上手的移动端现场沟通流程"。
+
+### 核心变更
+1. 移动端优先的单任务流程，而非三栏功能台
+2. 清晰的 4 步流程：给对方看 → 听见现场 → 抓住重点 → 我来确认
+3. 新增快捷入口 chips：药店问药、地铁问路、餐厅沟通、银行办理、房东沟通
+4. 新增沟通留存卡片（ConversationSummaryCard）
+5. 添加步骤编号和动画效果
+
+### 验收项
+- [x] 390px 手机宽度下第一屏不用学习即可操作
+- [x] 360px 宽度下无横向滚动
+- [x] 展示卡底部和正文均清晰可读
+- [x] 评委点击一次推荐场景或输入一句话，就能看到完整沟通流程
+- [x] 页面不是普通三栏 dashboard
+- [x] `pnpm --filter @silentbridge/web typecheck` 通过
+- [x] `pnpm build` 通过
+
+### 验收记录
+- 2026-06-18：执行 `pnpm --filter @silentbridge/web typecheck`，通过
+- 2026-06-18：执行 `pnpm build`，通过，Vite 成功生成 dist 产物
+
+### Phase 03 修改文件清单
+
+#### apps/web/src/styles/globals.css
+- 新增 stepEnter 动画
+- 新增 fadeIn 动画
+- 新增 slideDown 动画
+- 新增 phone-container 响应式容器样式
+
+#### apps/web/src/features/demo/PresetScenarioGrid.tsx
+- 新增 quickChips 快捷入口（药店问药、地铁问路等）
+- 优化选中状态样式
+
+#### apps/web/src/features/demo/CommunicationStarter.tsx
+- 更新标题文案："现在遇到什么沟通困难？"
+- 添加 BRIDGE STARTER 标签
+
+#### apps/web/src/features/demo/DisplayCard.tsx
+- 新增 step 属性，显示步骤编号
+- 优化步骤指示器样式
+
+#### apps/web/src/features/demo/TranscriptStream.tsx
+- 新增 step 属性，显示步骤编号
+- 优化布局结构
+
+#### apps/web/src/features/demo/InsightPanel.tsx
+- 新增 step 属性，显示步骤编号
+- 优化卡片样式
+
+#### apps/web/src/features/demo/ExpressionPanel.tsx
+- 新增 step 属性，显示步骤编号
+- 优化按钮布局
+
+#### apps/web/src/features/demo/DemoPage.tsx
+- 重构为移动端优先的单任务流程页面
+- 添加 landing 状态和 active task 状态的条件渲染
+- 任务生成后自动滚动到流程区
+- 模拟完成后显示沟通留存卡片
+
+#### apps/web/src/features/demo/ConversationSummaryCard.tsx (新增)
+- 新增沟通留存卡片组件
+- 显示场景、关键信息、待确认事项、下一步
+
+### 截图清单
+- `docs/evidence/assets/07-trae-phase03-redesign-entry-before-feedback.png` - Phase 03 重构后的移动端入口效果
+- `docs/evidence/assets/08-trae-phase03-session-and-dev-server.png` - Trae 执行过程、提示词和本地 dev server 证据
+- `docs/evidence/assets/09-trae-phase03-redesign-mobile-preview.png` - Phase 03 重构后的 390px 移动端预览
+
+### 当前复核备注
+Phase 03 已完成一轮结构优化和证据归档，但当前视觉记忆点、首屏叙事和低学习成本仍未达到最终参赛版本标准。该版本作为 Trae 重构过程留痕，后续需要继续设计复审和二次打磨。
+
+### 下一阶段计划
+Phase 04 - LLM 集成和真实语音识别
+
+---
+
+## Phase 04 - Mobile App Entry Architecture
+
+### 创建时间
+2026-06-18
+
+### 执行目标
+将初赛 demo 从线性流程页升级为真实移动 App 入口骨架，降低评委上手成本，并展示产品长期使用价值。
+
+### 核心变更
+1. 新增底部主导航：`首页 / 开桥 / 记录 / 话术`
+2. 首页提供立即开桥、常用场景、最近记录和快速展示卡
+3. 开桥页改为现场工作台，支持展示、字幕、确认、留存自由切换
+4. 新增沟通记录列表和详情，支持从历史记录继续沟通
+5. 新增可扩展话术库，点击话术后直接进入开桥展示
+6. 重做移动端样式，固定手机壳高度，内容区内部滚动，底部导航固定在视口底部
+
+### 验收项
+- [x] 390px 手机宽度下首页可直接点击“立即开桥”
+- [x] 390px 手机宽度下开桥工作台可切换展示、字幕、确认、留存
+- [x] 话术库点击话术后可更新大字展示卡并跳转到开桥
+- [x] 沟通记录可查看详情并继续沟通
+- [x] 360px 和 390px 手机宽度下无横向滚动
+- [x] 底部导航保持在手机视口底部
+- [x] `pnpm --filter @silentbridge/web typecheck` 通过
+- [x] `pnpm build` 通过
+
+### 验收记录
+- 2026-06-18：执行 `pnpm --filter @silentbridge/web typecheck`，通过。
+- 2026-06-18：执行 `pnpm build`，通过，Vite 成功生成 dist 产物。
+- 2026-06-18：390x844 浏览器验收通过，立即开桥、字幕模拟、话术跳转、记录继续沟通均正常。
+- 2026-06-18：390x844 浏览器验收 `html/body scrollWidth = 390`，无横向溢出。
+- 2026-06-18：360x780 浏览器验收 `html/body scrollWidth = 360`，无横向溢出。
+
+### Phase 04 修改文件清单
+
+#### apps/web/src/features/demo/DemoPage.tsx
+- 重构为移动端 App 入口骨架
+- 新增首页、开桥、记录、话术四个主入口
+- 新增开桥工作台模式切换
+- 新增记录继续沟通和话术跳转逻辑
+
+#### apps/web/src/styles/globals.css
+- 重做移动端 App shell
+- 新增底部导航、工作台、记录、话术库样式
+- 固定手机壳高度，内容区内部滚动
+- 优化 360px 和 390px 移动端布局
+
+### 截图清单
+- `docs/evidence/assets/10-phase04-app-home-390.png` - Phase 04 移动 App 首页骨架
+- `docs/evidence/assets/11-phase04-bridge-workspace-390.png` - Phase 04 开桥工作台预览
+
+### 下一阶段计划
+Phase 05 - 真实语音识别、转写和 AI 摘要链路

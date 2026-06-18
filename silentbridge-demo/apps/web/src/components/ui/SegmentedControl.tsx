@@ -1,4 +1,4 @@
-﻿﻿﻿interface Segment {
+﻿﻿﻿﻿﻿interface Segment {
   id: string;
   label: string;
 }
