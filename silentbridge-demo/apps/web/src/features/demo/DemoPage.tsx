@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 type AppTab = "home" | "bridge" | "records" | "phrases";
-type BridgeMode = "display" | "captions" | "confirm" | "saved";
+type BridgeStep = "show" | "listen" | "saved";
 
 interface CaptionLine {
   id: string;
@@ -14,9 +14,9 @@ interface CaptionLine {
 interface QuickScenario {
   id: string;
   title: string;
-  context: string;
-  signal: string;
+  helper: string;
   message: string;
+  style: "sky" | "sun" | "mint";
 }
 
 interface RecordItem {
@@ -24,7 +24,6 @@ interface RecordItem {
   title: string;
   place: string;
   time: string;
-  risk: "低" | "中" | "高";
   summary: string;
   nextStep: string;
   keyPoints: string[];
@@ -44,29 +43,29 @@ interface PhrasePack {
   phrases: Phrase[];
 }
 
-const defaultMessage = "我听不见，但可以通过文字沟通。请说慢一点，或写下关键词。";
+const defaultMessage = "我听不见，但可以看文字。请说慢一点。";
 
 const quickScenarios: QuickScenario[] = [
   {
     id: "pharmacy",
     title: "药店问药",
-    context: "用法、禁忌、下一步",
-    signal: "高频",
-    message: "我听不清，请帮我确认药名、用量和不能一起吃的东西。"
+    helper: "药名、用量、禁忌",
+    message: "我听不清，请帮我写下药名、用量和不能一起吃的东西。",
+    style: "mint"
   },
   {
-    id: "government",
+    id: "service",
     title: "窗口办事",
-    context: "材料、排队、补交",
-    signal: "易错",
-    message: "我需要确认要交哪些材料，请把关键步骤写下来。"
+    helper: "材料、排队、下一步",
+    message: "我需要确认要交哪些材料，请把关键步骤写下来。",
+    style: "sun"
   },
   {
     id: "traffic",
     title: "临时问路",
-    context: "站台、换乘、方向",
-    signal: "急用",
-    message: "我听不见，请告诉我应该去哪个方向或哪个站台。"
+    helper: "方向、站台、换乘",
+    message: "我听不见，请告诉我应该去哪个方向或哪个站台。",
+    style: "sky"
   }
 ];
 
@@ -99,10 +98,9 @@ const initialRecords: RecordItem[] = [
     title: "药店问药",
     place: "社区药房",
     time: "今天 14:26",
-    risk: "高",
     summary: "已确认饭后服用、一天两次、不能与酒同服。",
     nextStep: "服用后如明显不适，先停用并咨询医生。",
-    keyPoints: ["饭后服用", "早晚各一次", "避免饮酒", "其他用药先问医生"],
+    keyPoints: ["饭后服用", "早晚各一次", "避免饮酒", "不适时先停用"],
     actionPhrase: "请再帮我写下药名、用量和注意事项。"
   },
   {
@@ -110,64 +108,35 @@ const initialRecords: RecordItem[] = [
     title: "证件补办咨询",
     place: "街道政务窗口",
     time: "昨天 10:18",
-    risk: "中",
     summary: "需要身份证原件、近期照片，现场取号后到 3 号窗口办理。",
     nextStep: "明天上午带齐材料，先取号再排队。",
-    keyPoints: ["身份证原件", "一寸照片", "3 号窗口", "上午人少"],
+    keyPoints: ["身份证原件", "一寸照片", "3 号窗口", "上午办理"],
     actionPhrase: "我想确认还缺哪一项材料，请写给我。"
-  },
-  {
-    id: "record-class",
-    title: "课堂小组分工",
-    place: "教室 B203",
-    time: "周二 16:42",
-    risk: "低",
-    summary: "负责整理访谈记录，下周二前发到群里。",
-    nextStep: "周日前完成初稿，周一晚上让同学复核。",
-    keyPoints: ["访谈记录", "周二前提交", "群内同步"],
-    actionPhrase: "请把我的任务和截止时间再确认一遍。"
   }
 ];
 
 const phrasePacks: PhrasePack[] = [
   {
-    id: "essential",
-    title: "先开口",
-    description: "把沟通规则先交给对方，降低尴尬和误会。",
+    id: "first",
+    title: "先说明",
+    description: "先让对方知道怎么配合。",
     phrases: [
-      { id: "essential-1", text: "我听不见，但可以看文字。请说慢一点。", intent: "说明状态" },
-      { id: "essential-2", text: "请把时间、地点、金额写下来。", intent: "抓关键信息" },
-      { id: "essential-3", text: "我没有听懂，可以换一种方式说吗？", intent: "请求复述" }
+      { id: "first-1", text: "我听不见，但可以看文字。请说慢一点。", intent: "说明状态" },
+      { id: "first-2", text: "请把关键词写下来给我看。", intent: "请对方写" },
+      { id: "first-3", text: "我没有听懂，可以换一种方式说吗？", intent: "请求复述" }
     ]
   },
   {
-    id: "medical",
-    title: "健康相关",
-    description: "面对用药、问诊、检查时，优先确认风险。",
+    id: "confirm",
+    title: "再确认",
+    description: "把容易听错的信息单独确认。",
     phrases: [
-      { id: "medical-1", text: "请写下药名、用量、一天几次。", intent: "确认用药" },
-      { id: "medical-2", text: "这个情况严重吗？需要马上去医院吗？", intent: "判断紧急度" },
-      { id: "medical-3", text: "有什么不能一起吃或不能做的事？", intent: "确认禁忌" }
-    ]
-  },
-  {
-    id: "public",
-    title: "公共服务",
-    description: "窗口、交通、校园和面试都能复用。",
-    phrases: [
-      { id: "public-1", text: "请告诉我下一步应该去哪里办理。", intent: "确认流程" },
-      { id: "public-2", text: "我需要补交哪些材料？", intent: "确认材料" },
-      { id: "public-3", text: "请帮我确认截止时间。", intent: "确认时间" }
+      { id: "confirm-1", text: "请写下时间、地点和下一步。", intent: "确认三要素" },
+      { id: "confirm-2", text: "请写下药名、用量、一天几次。", intent: "确认用药" },
+      { id: "confirm-3", text: "我需要补交哪些材料？", intent: "确认材料" }
     ]
   }
 ];
-
-const bridgeModeLabels: Record<BridgeMode, string> = {
-  display: "展示",
-  captions: "字幕",
-  confirm: "确认",
-  saved: "留存"
-};
 
 const tabLabels: Record<AppTab, { label: string; mark: string }> = {
   home: { label: "首页", mark: "首" },
@@ -176,150 +145,153 @@ const tabLabels: Record<AppTab, { label: string; mark: string }> = {
   phrases: { label: "话术", mark: "句" }
 };
 
-function AppTopBar({ activeTab, onGoHome }: { activeTab: AppTab; onGoHome: () => void }) {
+function Mascot() {
   return (
-    <header className="sb-topbar">
-      <button type="button" className="sb-brand" onClick={onGoHome} aria-label="回到首页">
-        <span className="sb-brand-mark">S</span>
-        <span>
-          <strong>SilentBridge</strong>
-          <small>无声桥 · 随身沟通</small>
-        </span>
-      </button>
-      <div className="sb-status-pill">
-        <span className="sb-live-dot" />
-        {tabLabels[activeTab].label}
+    <div className="sb-mascot" aria-hidden="true">
+      <div className="sb-mascot__antenna" />
+      <div className="sb-mascot__face">
+        <span className="sb-mascot__eye sb-mascot__eye--left" />
+        <span className="sb-mascot__eye sb-mascot__eye--right" />
+        <span className="sb-mascot__smile" />
       </div>
-    </header>
-  );
-}
-
-function DisplayPanel({ message, compact = false }: { message: string; compact?: boolean }) {
-  return (
-    <section className={compact ? "sb-display sb-display--compact" : "sb-display"}>
-      <div className="sb-display-head">
-        <span>给对方看</span>
-        <span>高对比大字</span>
-      </div>
-      <p>{message}</p>
-      <div className="sb-display-foot">
-        <span>可递手机</span>
-        <span>可保存</span>
-        <span>可继续问</span>
-      </div>
-    </section>
-  );
-}
-
-function HomeView({
-  displayMessage,
-  latestRecord,
-  onOpenBridge,
-  onOpenRecord,
-  onOpenPhrases,
-  onPickScenario
-}: {
-  displayMessage: string;
-  latestRecord: RecordItem;
-  onOpenBridge: () => void;
-  onOpenRecord: (id: string) => void;
-  onOpenPhrases: () => void;
-  onPickScenario: (scenario: QuickScenario) => void;
-}) {
-  return (
-    <div className="sb-view sb-view--home">
-      <section className="sb-home-hero">
-        <p className="sb-kicker">READY WHEN WORDS FAIL</p>
-        <h1>把沟通先稳住，再把重点留下来。</h1>
-        <p>听不清、说不出、来不及解释时，先用大字开场，再接字幕、确认和留存。</p>
-        <button type="button" className="sb-primary-button" onClick={onOpenBridge}>
-          立即开桥
-        </button>
-      </section>
-
-      <section className="sb-quick-grid" aria-label="常用场景">
-        {quickScenarios.map((scenario) => (
-          <button
-            type="button"
-            className="sb-scenario-tile"
-            key={scenario.id}
-            onClick={() => onPickScenario(scenario)}
-          >
-            <span>{scenario.signal}</span>
-            <strong>{scenario.title}</strong>
-            <small>{scenario.context}</small>
-          </button>
-        ))}
-      </section>
-
-      <DisplayPanel message={displayMessage} compact />
-
-      <section className="sb-home-row">
-        <button type="button" className="sb-record-preview" onClick={() => onOpenRecord(latestRecord.id)}>
-          <span>最近记录</span>
-          <strong>{latestRecord.title}</strong>
-          <p>{latestRecord.summary}</p>
-        </button>
-        <button type="button" className="sb-phrase-entry" onClick={onOpenPhrases}>
-          <span>话术库</span>
-          <strong>不临场组织语言</strong>
-          <p>点一句，直接递给对方看。</p>
-        </button>
-      </section>
+      <div className="sb-mascot__shadow" />
     </div>
   );
 }
 
-function BridgeModeTabs({
-  activeMode,
-  onChange
-}: {
-  activeMode: BridgeMode;
-  onChange: (mode: BridgeMode) => void;
-}) {
-  const modes: BridgeMode[] = ["display", "captions", "confirm", "saved"];
-
+function AppTopBar({ activeTab, onGoHome }: { activeTab: AppTab; onGoHome: () => void }) {
   return (
-    <nav className="sb-mode-tabs" aria-label="开桥模式">
-      {modes.map((mode) => (
-        <button
-          type="button"
-          className={activeMode === mode ? "is-active" : ""}
-          key={mode}
-          onClick={() => onChange(mode)}
-        >
-          {bridgeModeLabels[mode]}
-        </button>
-      ))}
-    </nav>
+    <header className="sb-topbar">
+      <button type="button" className="sb-brand" onClick={onGoHome} aria-label="回到首页">
+        <span className="sb-brand-mark">桥</span>
+        <span>
+          <strong>无声桥</strong>
+          <small>听障现场沟通助手</small>
+        </span>
+      </button>
+      <div className="sb-status-pill">{tabLabels[activeTab].label}</div>
+    </header>
   );
 }
 
-function CaptionStream({
+function HomeView({
+  latestRecord,
+  onStart,
+  onPickScenario,
+  onOpenRecord,
+  onOpenPhrases
+}: {
+  latestRecord: RecordItem;
+  onStart: () => void;
+  onPickScenario: (scenario: QuickScenario) => void;
+  onOpenRecord: (id: string) => void;
+  onOpenPhrases: () => void;
+}) {
+  return (
+    <div className="sb-view sb-view--home">
+      <section className="sb-home-hero">
+        <div className="sb-hero-art">
+          <Mascot />
+          <div className="sb-speech-bubble">我来帮你把话递过去</div>
+        </div>
+        <div className="sb-hero-copy">
+          <p className="sb-kicker">给评委看的第一步</p>
+          <h1>听不清时，先把手机递过去。</h1>
+          <p>无声桥会先展示一句开场白，再接住对方说的话，最后留下重点。</p>
+        </div>
+        <button type="button" className="sb-primary-button" onClick={onStart}>
+          开始现场沟通
+        </button>
+      </section>
+
+      <section className="sb-section">
+        <div className="sb-section-title">
+          <h2>现在可能遇到</h2>
+          <button type="button" onClick={onOpenPhrases}>找一句话</button>
+        </div>
+        <div className="sb-scenario-row" aria-label="常用场景">
+          {quickScenarios.map((scenario) => (
+            <button
+              type="button"
+              className={`sb-scenario-card sb-scenario-card--${scenario.style}`}
+              key={scenario.id}
+              onClick={() => onPickScenario(scenario)}
+            >
+              <strong>{scenario.title}</strong>
+              <span>{scenario.helper}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <button
+        type="button"
+        className="sb-memory-peek"
+        onClick={() => onOpenRecord(latestRecord.id)}
+      >
+        <span>上次留下的重点</span>
+        <strong>{latestRecord.title}</strong>
+        <p>{latestRecord.summary}</p>
+      </button>
+    </div>
+  );
+}
+
+function ProgressDots({ step }: { step: BridgeStep }) {
+  const steps: Array<{ id: BridgeStep; label: string }> = [
+    { id: "show", label: "给对方看" },
+    { id: "listen", label: "听对方说" },
+    { id: "saved", label: "留下重点" }
+  ];
+  const activeIndex = steps.findIndex((item) => item.id === step);
+
+  return (
+    <div className="sb-progress" aria-label="沟通步骤">
+      {steps.map((item, index) => (
+        <div
+          className={index <= activeIndex ? "sb-progress__item is-active" : "sb-progress__item"}
+          key={item.id}
+        >
+          <span>{index + 1}</span>
+          <strong>{item.label}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DisplayCard({ message }: { message: string }) {
+  return (
+    <section className="sb-display-card">
+      <div className="sb-display-card__label">把这句话给对方看</div>
+      <p>{message}</p>
+    </section>
+  );
+}
+
+function CaptionPanel({
   visibleCaptions,
-  isCapturing,
-  onStart
+  isCapturing
 }: {
   visibleCaptions: CaptionLine[];
   isCapturing: boolean;
-  onStart: () => void;
 }) {
   return (
-    <section className="sb-caption-card">
-      <div className="sb-section-head">
-        <span>实时字幕</span>
-        <strong>{isCapturing ? "正在接收" : "药店问药模拟"}</strong>
+    <section className="sb-caption-panel" aria-live="polite">
+      <div className="sb-panel-head">
+        <span>{isCapturing ? "正在听" : "已抓到重点"}</span>
+        <strong>对方的话会变成文字</strong>
       </div>
-      <div className="sb-caption-list" aria-live="polite">
+      <div className="sb-caption-list">
         {visibleCaptions.length === 0 ? (
-          <div className="sb-empty-state">
-            <strong>等待对方说话</strong>
-            <p>点击开始后，系统会把对方说明转成可回看的文字。</p>
+          <div className="sb-listening-empty">
+            <span />
+            <p>请让对方开始说，文字会一条一条出现。</p>
           </div>
         ) : (
           visibleCaptions.map((line) => (
             <article
-              className={line.important ? "sb-caption-line sb-caption-line--important" : "sb-caption-line"}
+              className={line.important ? "sb-caption-line is-important" : "sb-caption-line"}
               key={line.id}
             >
               <div>
@@ -331,125 +303,109 @@ function CaptionStream({
           ))
         )}
       </div>
-      <button type="button" className="sb-secondary-button" onClick={onStart} disabled={isCapturing}>
-        {isCapturing ? "接收中" : "开始接收字幕"}
-      </button>
     </section>
   );
 }
 
-function ConfirmBoard({
-  onUsePhrase
-}: {
-  onUsePhrase: (phrase: Phrase) => void;
-}) {
-  const confirmPhrases = phrasePacks[1].phrases;
-
+function SavedPanel({ record, onOpenRecord }: { record: RecordItem; onOpenRecord: () => void }) {
   return (
-    <section className="sb-confirm-board">
-      <div className="sb-section-head">
-        <span>继续确认</span>
-        <strong>把问题变成可递出的句子</strong>
-      </div>
-      <div className="sb-confirm-grid">
-        {confirmPhrases.map((phrase) => (
-          <button type="button" key={phrase.id} onClick={() => onUsePhrase(phrase)}>
-            <span>{phrase.intent}</span>
-            <strong>{phrase.text}</strong>
-          </button>
+    <section className="sb-saved-panel">
+      <div className="sb-sticker">已保存</div>
+      <h2>{record.title}</h2>
+      <p>{record.summary}</p>
+      <div className="sb-chip-grid">
+        {record.keyPoints.map((point) => (
+          <span key={point}>{point}</span>
         ))}
       </div>
-    </section>
-  );
-}
-
-function SavedCard({ latestRecord, onOpenRecord }: { latestRecord: RecordItem; onOpenRecord: () => void }) {
-  return (
-    <section className="sb-saved-card">
-      <div className="sb-section-head">
-        <span>已留存</span>
-        <strong>{latestRecord.title}</strong>
-      </div>
-      <p>{latestRecord.summary}</p>
-      <ul>
-        {latestRecord.keyPoints.map((item) => (
-          <li key={item}>{item}</li>
-        ))}
-      </ul>
       <button type="button" className="sb-secondary-button" onClick={onOpenRecord}>
-        查看记录详情
+        去记录里看看
       </button>
     </section>
   );
 }
 
 function BridgeView({
-  bridgeMode,
-  displayMessage,
+  step,
+  message,
   visibleCaptions,
   isCapturing,
-  latestRecord,
-  onBridgeModeChange,
-  onStartCaptions,
-  onUsePhrase,
-  onSaveRecord,
-  onOpenRecord
+  currentRecord,
+  onStartListening,
+  onSave,
+  onOpenPhrases,
+  onOpenRecord,
+  onRestart
 }: {
-  bridgeMode: BridgeMode;
-  displayMessage: string;
+  step: BridgeStep;
+  message: string;
   visibleCaptions: CaptionLine[];
   isCapturing: boolean;
-  latestRecord: RecordItem;
-  onBridgeModeChange: (mode: BridgeMode) => void;
-  onStartCaptions: () => void;
-  onUsePhrase: (phrase: Phrase) => void;
-  onSaveRecord: () => void;
+  currentRecord: RecordItem;
+  onStartListening: () => void;
+  onSave: () => void;
+  onOpenPhrases: () => void;
   onOpenRecord: () => void;
+  onRestart: () => void;
 }) {
+  const captionsDone = visibleCaptions.length >= captionLines.length && !isCapturing;
+
   return (
     <div className="sb-view">
-      <section className="sb-workspace-head">
-        <div>
-          <p className="sb-kicker">FIELD BRIDGE</p>
-          <h1>现场开桥</h1>
-        </div>
-        <button type="button" className="sb-save-button" onClick={onSaveRecord}>
-          保存
-        </button>
+      <section className="sb-bridge-head">
+        <p className="sb-kicker">现场沟通</p>
+        <h1>一步一步来，不急。</h1>
       </section>
 
-      <BridgeModeTabs activeMode={bridgeMode} onChange={onBridgeModeChange} />
+      <ProgressDots step={step} />
 
-      {bridgeMode === "display" && (
-        <div className="sb-panel-stack">
-          <DisplayPanel message={displayMessage} />
-          <div className="sb-action-strip">
-            <button type="button" onClick={() => onBridgeModeChange("captions")}>
-              接字幕
+      {step === "show" && (
+        <section className="sb-bridge-stage">
+          <DisplayCard message={message} />
+          <div className="sb-bridge-actions">
+            <button type="button" className="sb-primary-button" onClick={onStartListening}>
+              对方开始说了
             </button>
-            <button type="button" onClick={() => onBridgeModeChange("confirm")}>
-              继续问
+            <button type="button" className="sb-secondary-button" onClick={onOpenPhrases}>
+              换一句开场白
             </button>
           </div>
-        </div>
+        </section>
       )}
 
-      {bridgeMode === "captions" && (
-        <CaptionStream
-          visibleCaptions={visibleCaptions}
-          isCapturing={isCapturing}
-          onStart={onStartCaptions}
-        />
+      {step === "listen" && (
+        <section className="sb-bridge-stage">
+          <CaptionPanel visibleCaptions={visibleCaptions} isCapturing={isCapturing} />
+          {captionsDone && (
+            <div className="sb-summary-card">
+              <span>小桥抓到的重点</span>
+              <strong>饭后吃，一天两次，不要和酒一起服用。</strong>
+            </div>
+          )}
+          <div className="sb-bridge-actions">
+            <button
+              type="button"
+              className="sb-primary-button"
+              onClick={onSave}
+              disabled={!captionsDone}
+            >
+              保存这次重点
+            </button>
+            <button type="button" className="sb-secondary-button" onClick={onOpenPhrases}>
+              还想问一句
+            </button>
+          </div>
+        </section>
       )}
 
-      {bridgeMode === "confirm" && (
-        <div className="sb-panel-stack">
-          <DisplayPanel message={displayMessage} compact />
-          <ConfirmBoard onUsePhrase={onUsePhrase} />
-        </div>
+      {step === "saved" && (
+        <section className="sb-bridge-stage">
+          <SavedPanel record={currentRecord} onOpenRecord={onOpenRecord} />
+          <button type="button" className="sb-secondary-button" onClick={onRestart}>
+            再开一次沟通
+          </button>
+        </section>
       )}
-
-      {bridgeMode === "saved" && <SavedCard latestRecord={latestRecord} onOpenRecord={onOpenRecord} />}
     </div>
   );
 }
@@ -470,9 +426,8 @@ function RecordsView({
   return (
     <div className="sb-view">
       <section className="sb-page-title">
-        <p className="sb-kicker">COMMUNICATION MEMORY</p>
-        <h1>沟通记录</h1>
-        <p>把每次对话变成可回看、可复用、可交给家人或医生的摘要。</p>
+        <p className="sb-kicker">沟通小本本</p>
+        <h1>留下来的话，之后还能用。</h1>
       </section>
 
       <section className="sb-record-list" aria-label="历史沟通记录">
@@ -491,11 +446,8 @@ function RecordsView({
       </section>
 
       <section className="sb-record-detail">
-        <div className="sb-record-detail-head">
-          <span>风险 {selectedRecord.risk}</span>
-          <strong>{selectedRecord.title}</strong>
-          <small>{selectedRecord.place} · {selectedRecord.time}</small>
-        </div>
+        <div className="sb-sticker">重点</div>
+        <h2>{selectedRecord.title}</h2>
         <p>{selectedRecord.summary}</p>
         <div className="sb-chip-grid">
           {selectedRecord.keyPoints.map((point) => (
@@ -524,15 +476,14 @@ function PhrasesView({
   return (
     <div className="sb-view">
       <section className="sb-page-title">
-        <p className="sb-kicker">PHRASE LIBRARY</p>
-        <h1>话术库</h1>
-        <p>不是固定四个场景，而是把常见沟通动作做成可扩展的句库。</p>
+        <p className="sb-kicker">点一句就能递出去</p>
+        <h1>不用临时组织语言。</h1>
       </section>
 
       <div className="sb-phrase-packs">
         {phrasePacks.map((pack) => (
           <section className="sb-phrase-pack" key={pack.id}>
-            <div className="sb-section-head">
+            <div className="sb-panel-head">
               <span>{pack.title}</span>
               <strong>{pack.description}</strong>
             </div>
@@ -584,13 +535,14 @@ function BottomNav({
 
 export function DemoPage() {
   const [activeTab, setActiveTab] = useState<AppTab>("home");
-  const [bridgeMode, setBridgeMode] = useState<BridgeMode>("display");
+  const [bridgeStep, setBridgeStep] = useState<BridgeStep>("show");
   const [displayMessage, setDisplayMessage] = useState(defaultMessage);
   const [visibleCaptions, setVisibleCaptions] = useState<CaptionLine[]>([]);
   const [isCapturing, setIsCapturing] = useState(false);
   const [records, setRecords] = useState<RecordItem[]>(initialRecords);
   const [selectedRecordId, setSelectedRecordId] = useState(initialRecords[0].id);
   const [activePhraseId, setActivePhraseId] = useState<string>();
+  const [currentRecord, setCurrentRecord] = useState<RecordItem>(initialRecords[0]);
 
   const latestRecord = useMemo(() => records[0], [records]);
 
@@ -605,31 +557,52 @@ export function DemoPage() {
     }
 
     const timer = window.setTimeout(() => {
-      setVisibleCaptions((prev) => [...prev, captionLines[prev.length]]);
-    }, 680);
+      setVisibleCaptions((previousLines) => [...previousLines, captionLines[previousLines.length]]);
+    }, 720);
 
     return () => window.clearTimeout(timer);
   }, [isCapturing, visibleCaptions.length]);
 
-  const openBridge = (message = displayMessage, mode: BridgeMode = "display") => {
+  const openBridge = (message = defaultMessage) => {
     setDisplayMessage(message);
-    setBridgeMode(mode);
+    setVisibleCaptions([]);
+    setIsCapturing(false);
+    setBridgeStep("show");
     setActiveTab("bridge");
   };
 
-  const handleStartCaptions = () => {
+  const startListening = () => {
     setVisibleCaptions([]);
+    setBridgeStep("listen");
     setIsCapturing(true);
   };
 
-  const handleUsePhrase = (phrase: Phrase) => {
-    setActivePhraseId(phrase.id);
-    openBridge(phrase.text, "display");
+  const saveCurrentRecord = () => {
+    const savedRecord: RecordItem = {
+      id: `record-${Date.now()}`,
+      title: "刚刚的现场沟通",
+      place: "药店柜台",
+      time: "刚刚",
+      summary: "已保存饭后服用、一天两次、不能与酒同服。",
+      nextStep: "如服用后明显不适，先停用并咨询医生。",
+      keyPoints: ["饭后服用", "早晚各一次", "避免饮酒", "不适时咨询医生"],
+      actionPhrase: "请把药名和用量再写一遍，我要保存。"
+    };
+
+    setCurrentRecord(savedRecord);
+    setRecords((currentRecords) => [savedRecord, ...currentRecords]);
+    setSelectedRecordId(savedRecord.id);
+    setBridgeStep("saved");
   };
 
   const handlePickScenario = (scenario: QuickScenario) => {
     setActivePhraseId(undefined);
-    openBridge(scenario.message, "display");
+    openBridge(scenario.message);
+  };
+
+  const handleUsePhrase = (phrase: Phrase) => {
+    setActivePhraseId(phrase.id);
+    openBridge(phrase.text);
   };
 
   const handleOpenRecord = (id: string) => {
@@ -639,40 +612,18 @@ export function DemoPage() {
 
   const handleContinueRecord = (record: RecordItem) => {
     setActivePhraseId(undefined);
-    openBridge(record.actionPhrase, "display");
-  };
-
-  const handleSaveRecord = () => {
-    const savedRecord: RecordItem = {
-      id: "record-current-session",
-      title: "当前现场沟通",
-      place: "药店柜台",
-      time: "刚刚",
-      risk: "高",
-      summary: "已把对方说明转成文字，并保留用药频次、禁忌和下一步。",
-      nextStep: "按记录再次确认药名和用量。",
-      keyPoints: ["已展示开场说明", "已接收字幕", "需要确认药名", "建议保存给家人看"],
-      actionPhrase: "请把药名和用量再写一遍，我要保存。"
-    };
-
-    setRecords((currentRecords) => {
-      const withoutCurrent = currentRecords.filter((record) => record.id !== savedRecord.id);
-      return [savedRecord, ...withoutCurrent];
-    });
-    setSelectedRecordId(savedRecord.id);
-    setBridgeMode("saved");
+    openBridge(record.actionPhrase);
   };
 
   const renderActiveView = () => {
     if (activeTab === "home") {
       return (
         <HomeView
-          displayMessage={displayMessage}
           latestRecord={latestRecord}
-          onOpenBridge={() => openBridge(defaultMessage)}
+          onStart={() => openBridge(defaultMessage)}
+          onPickScenario={handlePickScenario}
           onOpenRecord={handleOpenRecord}
           onOpenPhrases={() => setActiveTab("phrases")}
-          onPickScenario={handlePickScenario}
         />
       );
     }
@@ -680,16 +631,16 @@ export function DemoPage() {
     if (activeTab === "bridge") {
       return (
         <BridgeView
-          bridgeMode={bridgeMode}
-          displayMessage={displayMessage}
+          step={bridgeStep}
+          message={displayMessage}
           visibleCaptions={visibleCaptions}
           isCapturing={isCapturing}
-          latestRecord={latestRecord}
-          onBridgeModeChange={setBridgeMode}
-          onStartCaptions={handleStartCaptions}
-          onUsePhrase={handleUsePhrase}
-          onSaveRecord={handleSaveRecord}
+          currentRecord={currentRecord}
+          onStartListening={startListening}
+          onSave={saveCurrentRecord}
+          onOpenPhrases={() => setActiveTab("phrases")}
           onOpenRecord={() => handleOpenRecord(selectedRecordId)}
+          onRestart={() => openBridge(defaultMessage)}
         />
       );
     }
