@@ -6,12 +6,15 @@ SilentBridge 无声桥
 ## 当前阶段
 Phase 04 - Mobile App Entry Architecture
 
+## Session ID 管理
+所有 Trae session ID 统一维护在 `session-registry.md`。本文件只记录阶段过程、验收和证据截图。
+
 ---
 
 ## Phase 01 - Project Skeleton
 
-### TRAE Session ID
-.986734319122016:eac697c931dfbe99c16d379cac88459a_6a30e64c9681639827a47889.6a328c3397a2b4d372b261c5.6a328c3210ff01e478e64676:Trae CN.T(2026/6/17 19:59:47)
+### Session Registry Reference
+See `session-registry.md` row: `Phase 01 - Project Skeleton`.
 
 ### 创建时间
 2026-06-17 19:59:47
@@ -32,8 +35,8 @@ Phase 04 - Mobile App Entry Architecture
 
 ## Phase 02 - Open Communication Engine
 
-### TRAE Session ID
-.986734319122016:2084b3c33841fe49c2f7e06b3aaab0be_6a30e64c9681639827a47889.6a32ae0d97a2b4d372b2627c.6a32ae08d2d2763872145fe9:Trae CN.T(2026/6/17 22:24:13)
+### Session Registry Reference
+See `session-registry.md` row: `Phase 02 - Open Communication Engine`.
 
 ### 创建时间
 2026-06-17 22:24:13
@@ -48,7 +51,7 @@ Phase 04 - Mobile App Entry Architecture
 - 待补充：1440px 桌面增强布局成果截图
 
 ### 页面重构补充记录
-- TRAE Session ID：.986734319122016:269677e57c2e62fcca7df4204c75b389_6a30e64c9681639827a47889.6a32b1ae97a2b4d372b2632f.6a32b1aed2d2763872145fea:Trae CN.T(2026/6/17 22:39:42)
+- Session Registry Reference：See `session-registry.md` row: `Phase 02 - Page Refactor Supplement`.
 - 创建时间：2026-06-17 22:39:42
 - 过程截图：assets/06-trae-phase02-page-refactor.png
 - 主要内容：重构页面视觉、全局样式、UI 组件和 Feature 组件；截图显示包含 typecheck/build 验证步骤。
@@ -123,8 +126,8 @@ Phase 03 - LLM 集成和完整交互功能
 
 ## Phase 03 - Field Flow Redesign
 
-### TRAE Session ID
-.986734319122016:8a34241baa9c622d657166e5f0400071_6a30e64c9681639827a47889.6a33dc59f5aca5c0831b7127.6a33dc58a18af993389b3348:Trae CN.T(2026/6/18 19:54:01)
+### Session Registry Reference
+See `session-registry.md` row: `Phase 03 - Field Flow Redesign`.
 
 ### 创建时间
 2026-06-18
@@ -266,6 +269,7 @@ Phase 05 - 真实语音识别、转写和 AI 摘要链路
 ## Phase 09 - Logic Closure
 
 - Time: 2026-06-18
+- Session Registry Reference: See `session-registry.md` row: `Phase 09 - Logic Closure`.
 - Goal: Close the mobile demo flow from home to communication, saved record, history review, and continue conversation.
 - Changes:
   - Split demo constants and types into demo-content.ts.
