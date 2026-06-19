@@ -586,6 +586,7 @@ function BottomNav({
 
 export function DemoPage() {
   const contentRef = useRef<HTMLElement>(null);
+  const replyRunIdRef = useRef(0);
   const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [bridgeStep, setBridgeStep] = useState<BridgeStep>("show");
   const [displayMessage, setDisplayMessage] = useState(defaultMessage);
@@ -613,6 +614,7 @@ export function DemoPage() {
   const [agentProvider, setAgentProvider] = useState<"proxy" | "fallback">("fallback");
   const [homeMessageDraft, setHomeMessageDraft] = useState(defaultMessage);
   const [replyDraft, setReplyDraft] = useState("");
+  const [processedReplyDraft, setProcessedReplyDraft] = useState("");
 
   const activeFlow = demoFlows[activeFlowId];
   const latestRecord = useMemo(() => records[0], [records]);
@@ -629,6 +631,7 @@ export function DemoPage() {
     }
 
     if (visibleCaptions.length >= activeCaptions.length) {
+      const runId = replyRunIdRef.current;
       setIsCapturing(false);
       setAsrStatus("transcribing");
 
@@ -648,6 +651,10 @@ export function DemoPage() {
             fallbackFlow: activeFlow
           });
           const transcript = transcribeResponse.transcript;
+          if (replyRunIdRef.current !== runId) {
+            return;
+          }
+
           setVisibleCaptions(transcript);
 
           const response = await runSessionAgent({
@@ -660,6 +667,10 @@ export function DemoPage() {
             },
             fallbackFlow: activeFlow
           });
+          if (replyRunIdRef.current !== runId) {
+            return;
+          }
+
           const result: AgentRunResult = {
             graphName: response.graphName,
             visitedNodes: response.visitedNodes as AgentRunResult["visitedNodes"],
@@ -679,6 +690,10 @@ export function DemoPage() {
             })
           );
         } catch {
+          if (replyRunIdRef.current !== runId) {
+            return;
+          }
+
           setAgentResult(fallbackResult);
           setAgentProvider("fallback");
           setAsrStatus("done");
@@ -716,6 +731,16 @@ export function DemoPage() {
     return () => window.clearTimeout(timer);
   }, [justSavedRecordId]);
 
+  const resetReplyProgress = () => {
+    replyRunIdRef.current += 1;
+    setVisibleCaptions([]);
+    setIsCapturing(false);
+    setAsrStatus("idle");
+    setAgentResult(undefined);
+    setAgentProvider("fallback");
+    setProcessedReplyDraft("");
+  };
+
   const openBridge = (
     message = defaultMessage,
     sourceLabel = "默认开场白",
@@ -726,48 +751,50 @@ export function DemoPage() {
     setActiveFlowId(flowId);
     setDisplayMessage(message);
     setBridgeSourceLabel(sourceLabel);
-    setVisibleCaptions([]);
-    setIsCapturing(false);
-    setAsrStatus("idle");
-    setAgentResult(undefined);
-    setAgentProvider("fallback");
+    resetReplyProgress();
     setReplyDraft("");
     setBridgeStep("show");
     setActiveTab("bridge");
   };
 
   const openReplyComposer = () => {
-    setVisibleCaptions([]);
-    setAgentResult(undefined);
-    setAsrStatus("idle");
-    setIsCapturing(false);
     setBridgeStep("listen");
   };
 
   const backToShowStep = () => {
-    setVisibleCaptions([]);
-    setAgentResult(undefined);
-    setAgentProvider("fallback");
-    setAsrStatus("idle");
     setIsCapturing(false);
+    setAsrStatus((currentStatus) => (currentStatus === "listening" ? "idle" : currentStatus));
     setBridgeStep("show");
   };
 
   const backToReplyInput = () => {
-    setVisibleCaptions([]);
-    setAgentResult(undefined);
-    setAgentProvider("fallback");
-    setAsrStatus("idle");
     setIsCapturing(false);
     setBridgeStep("listen");
   };
 
   const processReply = () => {
+    const normalizedReply = normalizeUserText(replyDraft, "", 280);
+
+    if (
+      normalizedReply &&
+      normalizedReply === processedReplyDraft &&
+      visibleCaptions.length > 0 &&
+      agentResult
+    ) {
+      setIsCapturing(false);
+      setAsrStatus("done");
+      setBridgeStep("listen");
+      return;
+    }
+
+    const runId = replyRunIdRef.current + 1;
+    replyRunIdRef.current = runId;
     setVisibleCaptions([]);
     setAgentResult(undefined);
+    setAgentProvider("fallback");
+    setProcessedReplyDraft("");
     setAsrStatus("listening");
     setBridgeStep("listen");
-    const normalizedReply = normalizeUserText(replyDraft, "", 280);
 
     if (!normalizedReply) {
       setIsCapturing(true);
@@ -777,10 +804,10 @@ export function DemoPage() {
     setIsCapturing(false);
     setAsrStatus("transcribing");
 
-    void runManualReplyPipeline(normalizedReply);
+    void runManualReplyPipeline(normalizedReply, runId);
   };
 
-  const runManualReplyPipeline = async (manualReply: string) => {
+  const runManualReplyPipeline = async (manualReply: string, runId: number) => {
     try {
       await new Promise((resolve) => window.setTimeout(resolve, 360));
 
@@ -795,6 +822,10 @@ export function DemoPage() {
       });
 
       const transcript = transcribeResponse.transcript;
+      if (replyRunIdRef.current !== runId) {
+        return;
+      }
+
       setVisibleCaptions(transcript);
 
       const response = await runSessionAgent({
@@ -807,6 +838,9 @@ export function DemoPage() {
         },
         fallbackFlow: activeFlow
       });
+      if (replyRunIdRef.current !== runId) {
+        return;
+      }
 
       const result: AgentRunResult = {
         graphName: response.graphName,
@@ -817,6 +851,7 @@ export function DemoPage() {
       setAgentResult(result);
       setAgentProvider(response.provider);
       setAsrStatus("done");
+      setProcessedReplyDraft(manualReply);
       setActiveSession((prevSession) =>
         appendSessionRound({
           session: prevSession,
@@ -827,12 +862,33 @@ export function DemoPage() {
         })
       );
     } catch {
+      if (replyRunIdRef.current !== runId) {
+        return;
+      }
+
       setAsrStatus("done");
     }
   };
 
+  const handleReplyDraftChange = (value: string) => {
+    const normalizedValue = normalizeUserText(value, "", 280);
+    const shouldInvalidateResult =
+      Boolean(agentResult) ||
+      visibleCaptions.length > 0 ||
+      asrStatus === "listening" ||
+      asrStatus === "transcribing";
+
+    setReplyDraft(value);
+
+    if (normalizedValue === processedReplyDraft || !shouldInvalidateResult) {
+      return;
+    }
+
+    resetReplyProgress();
+  };
+
   const useDemoReply = () => {
-    setReplyDraft(activeFlow.captions.map((line) => line.text).join(" "));
+    handleReplyDraftChange(activeFlow.captions.map((line) => line.text).join(" "));
   };
 
   const handleConfirmQuestion = () => {
@@ -856,10 +912,7 @@ export function DemoPage() {
     setSelectedRecordId(savedRecord.id);
     setRecordsMode("detail");
     setJustSavedRecordId(savedRecord.id);
-    setIsCapturing(false);
-    setVisibleCaptions([]);
-    setAsrStatus("idle");
-    setAgentResult(undefined);
+    resetReplyProgress();
     setBridgeStep("show");
     setActiveTab("records");
   };
@@ -936,7 +989,7 @@ export function DemoPage() {
           agentResult={agentResult}
           agentProvider={agentProvider}
           replyDraft={replyDraft}
-          onReplyDraftChange={setReplyDraft}
+          onReplyDraftChange={handleReplyDraftChange}
           onUseDemoReply={useDemoReply}
           onProcessReply={processReply}
           onBackToShow={backToShowStep}
