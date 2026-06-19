@@ -50,6 +50,17 @@ button:focus-visible {
   outline-offset: 3px;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 ::selection {
   background: rgba(255, 217, 111, 0.72);
 }
@@ -1240,6 +1251,10 @@ button:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 0.7rem;
+}
+
+.sb-input-card__field {
+  display: grid;
 }
 
 .sb-input-card span {

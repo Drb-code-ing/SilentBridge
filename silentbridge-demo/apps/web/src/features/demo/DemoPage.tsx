@@ -360,13 +360,15 @@ function BridgeView({
 
       {step === "listen" && (
         <section className="sb-bridge-stage">
-          <label className="sb-input-card sb-input-card--reply">
+          <section className="sb-input-card sb-input-card--reply">
             <div className="sb-input-card__head">
               <span>请对方回复</span>
               <button type="button" className="sb-text-button" onClick={onBackToShow}>
                 返回上一步
               </button>
             </div>
+            <label className="sb-input-card__field">
+              <span className="sr-only">对方回复内容</span>
             <textarea
               value={replyDraft}
               onChange={(event) => onReplyDraftChange(event.target.value)}
@@ -374,13 +376,14 @@ function BridgeView({
               maxLength={280}
               rows={4}
             />
+            </label>
             <button type="button" className="sb-text-button" onClick={onUseDemoReply}>
               填入演示回复
             </button>
             <button type="button" className="sb-text-button sb-text-button--primary" onClick={onProcessReply}>
               整理这段回复
             </button>
-          </label>
+          </section>
           <AsrStatusPanel status={asrStatus} />
           <CaptionPanel visibleCaptions={visibleCaptions} isCapturing={isCapturing} />
           {captionsDone && (
