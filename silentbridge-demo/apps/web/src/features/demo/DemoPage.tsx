@@ -17,6 +17,16 @@ import {
 } from "./demo-content";
 import { asrStateLabels, type AsrStatus } from "./asr-simulator";
 import { runDemoAgent, type AgentRunResult } from "./agent-graph";
+import { transcribeSession } from "./asr-client";
+import { runSessionAgent } from "./agent-client";
+import {
+  appendSessionRound,
+  createCommunicationSession,
+  createRecordFromSession,
+  loadStoredRecords,
+  persistRecords
+} from "./session-store";
+import type { CommunicationSession } from "./session-types";
 
 function Mascot() {
   return (
@@ -195,9 +205,11 @@ function CaptionPanel({
 
 function AgentInsightCard({
   result,
+  provider,
   onConfirmQuestion
 }: {
   result?: AgentRunResult;
+  provider: "proxy" | "fallback";
   onConfirmQuestion: () => void;
 }) {
   if (!result) {
@@ -211,6 +223,9 @@ function AgentInsightCard({
       <div className="sb-panel-head">
         <span>小桥理解</span>
         <strong>Agent: {result.graphName}</strong>
+      </div>
+      <div className="sb-agent-provider">
+        来源：{provider === "proxy" ? "后端代理" : "本地兜底"}
       </div>
 
       <div className="sb-agent-grid">
@@ -265,6 +280,7 @@ function BridgeView({
   expectedCaptionCount,
   asrStatus,
   agentResult,
+  agentProvider,
   onStartListening,
   onSave,
   onConfirmQuestion,
@@ -279,6 +295,7 @@ function BridgeView({
   expectedCaptionCount: number;
   asrStatus: AsrStatus;
   agentResult?: AgentRunResult;
+  agentProvider: "proxy" | "fallback";
   onStartListening: () => void;
   onSave: () => void;
   onConfirmQuestion: () => void;
@@ -321,7 +338,7 @@ function BridgeView({
             </div>
           )}
           {captionsDone && (
-            <AgentInsightCard result={agentResult} onConfirmQuestion={onConfirmQuestion} />
+            <AgentInsightCard result={agentResult} provider={agentProvider} onConfirmQuestion={onConfirmQuestion} />
           )}
           <div className="sb-bridge-actions">
             <button
@@ -489,14 +506,25 @@ export function DemoPage() {
   const [displayMessage, setDisplayMessage] = useState(defaultMessage);
   const [bridgeSourceLabel, setBridgeSourceLabel] = useState("默认开场白");
   const [activeFlowId, setActiveFlowId] = useState<DemoFlowId>(defaultFlowId);
+  const [activeSession, setActiveSession] = useState<CommunicationSession>(() =>
+    createCommunicationSession({
+      flowId: defaultFlowId,
+      sourceLabel: "默认开场白",
+      prompt: defaultMessage
+    })
+  );
   const [visibleCaptions, setVisibleCaptions] = useState<CaptionLine[]>([]);
   const [isCapturing, setIsCapturing] = useState(false);
-  const [records, setRecords] = useState<RecordItem[]>(initialRecords);
-  const [selectedRecordId, setSelectedRecordId] = useState(initialRecords[0].id);
+  const [records, setRecords] = useState<RecordItem[]>(() => loadStoredRecords(initialRecords));
+  const [selectedRecordId, setSelectedRecordId] = useState(() => {
+    const stored = loadStoredRecords(initialRecords);
+    return stored[0]?.id ?? initialRecords[0].id;
+  });
   const [activePhraseId, setActivePhraseId] = useState<string>();
   const [justSavedRecordId, setJustSavedRecordId] = useState<string>();
   const [asrStatus, setAsrStatus] = useState<AsrStatus>("idle");
   const [agentResult, setAgentResult] = useState<AgentRunResult>();
+  const [agentProvider, setAgentProvider] = useState<"proxy" | "fallback">("fallback");
 
   const activeFlow = demoFlows[activeFlowId];
   const latestRecord = useMemo(() => records[0], [records]);
@@ -513,15 +541,72 @@ export function DemoPage() {
     }
 
     if (visibleCaptions.length >= activeCaptions.length) {
+      setIsCapturing(false);
       setAsrStatus("transcribing");
 
-      const timer = window.setTimeout(() => {
-        setIsCapturing(false);
-        setAsrStatus("done");
-        setAgentResult(runDemoAgent({ flow: activeFlow, transcript: activeCaptions }));
-      }, 520);
+      const animatedTranscript = activeCaptions;
+      const fallbackResult = runDemoAgent({ flow: activeFlow, transcript: animatedTranscript });
 
-      return () => window.clearTimeout(timer);
+      void (async () => {
+        try {
+          await new Promise((resolve) => window.setTimeout(resolve, 520));
+
+          const transcribeResponse = await transcribeSession({
+            request: {
+              sessionId: activeSession.id,
+              flowId: activeFlowId,
+              source: "fallback"
+            },
+            fallbackFlow: activeFlow
+          });
+          const transcript = transcribeResponse.transcript;
+          setVisibleCaptions(transcript);
+
+          const response = await runSessionAgent({
+            request: {
+              sessionId: activeSession.id,
+              flowId: activeFlowId,
+              transcript,
+              userMessage: displayMessage,
+              round: activeSession.rounds.length + 1
+            },
+            fallbackFlow: activeFlow
+          });
+          const result: AgentRunResult = {
+            graphName: response.graphName,
+            visitedNodes: response.visitedNodes as AgentRunResult["visitedNodes"],
+            understanding: response.understanding
+          };
+          setAgentResult(result);
+          setAgentProvider(response.provider);
+          setAsrStatus("done");
+
+          setActiveSession((prevSession) =>
+            appendSessionRound({
+              session: prevSession,
+              prompt: displayMessage,
+              transcript,
+              agentResult: result,
+              provider: response.provider
+            })
+          );
+        } catch {
+          setAgentResult(fallbackResult);
+          setAgentProvider("fallback");
+          setAsrStatus("done");
+
+          setActiveSession((prevSession) =>
+            appendSessionRound({
+              session: prevSession,
+              prompt: displayMessage,
+              transcript: animatedTranscript,
+              agentResult: fallbackResult,
+              provider: "fallback"
+            })
+          );
+        }
+      })();
+      return;
     }
 
     const timer = window.setTimeout(() => {
@@ -529,7 +614,7 @@ export function DemoPage() {
     }, 720);
 
     return () => window.clearTimeout(timer);
-  }, [activeFlow, isCapturing, visibleCaptions.length]);
+  }, [activeFlow, activeFlowId, activeSession, displayMessage, isCapturing, visibleCaptions.length]);
 
   useEffect(() => {
     if (!justSavedRecordId) {
@@ -548,13 +633,16 @@ export function DemoPage() {
     sourceLabel = "默认开场白",
     flowId: DemoFlowId = defaultFlowId
   ) => {
+    const nextSession = createCommunicationSession({ flowId, sourceLabel, prompt: message });
+    setActiveSession(nextSession);
+    setActiveFlowId(flowId);
     setDisplayMessage(message);
     setBridgeSourceLabel(sourceLabel);
-    setActiveFlowId(flowId);
     setVisibleCaptions([]);
     setIsCapturing(false);
     setAsrStatus("idle");
     setAgentResult(undefined);
+    setAgentProvider("fallback");
     setBridgeStep("show");
     setActiveTab("bridge");
   };
@@ -580,15 +668,11 @@ export function DemoPage() {
   };
 
   const saveCurrentRecord = () => {
-    const understanding = agentResult?.understanding ?? activeFlow.aiUnderstanding;
-    const savedRecord: RecordItem = {
-      ...activeFlow.savedRecord,
-      aiUnderstanding: understanding,
-      id: `record-${activeFlowId}-${Date.now()}`,
-      time: "刚刚"
-    };
+    const savedRecord = createRecordFromSession({ session: activeSession, flow: activeFlow });
+    const nextRecords = [savedRecord, ...records];
 
-    setRecords((currentRecords) => [savedRecord, ...currentRecords]);
+    setRecords(nextRecords);
+    persistRecords(nextRecords);
     setSelectedRecordId(savedRecord.id);
     setJustSavedRecordId(savedRecord.id);
     setIsCapturing(false);
@@ -647,6 +731,7 @@ export function DemoPage() {
           expectedCaptionCount={activeFlow.captions.length}
           asrStatus={asrStatus}
           agentResult={agentResult}
+          agentProvider={agentProvider}
           onStartListening={startListening}
           onSave={saveCurrentRecord}
           onConfirmQuestion={handleConfirmQuestion}

@@ -1066,6 +1066,12 @@ button:focus-visible {
   animation: sbViewEnter 240ms ease-out both;
 }
 
+.sb-agent-provider {
+  color: #536070;
+  font-size: 0.74rem;
+  font-weight: 850;
+}
+
 .sb-agent-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

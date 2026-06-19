@@ -324,3 +324,28 @@ Phase 05 - 真实语音识别、转写和 AI 摘要链路
 - Evidence:
   - assets/18-trae-phase10-plan-execution.png
   - assets/19-trae-phase10-completion-summary.png
+
+---
+
+## Phase 11 - Real Business Loop
+
+- Time: 2026-06-19
+- Session Registry Reference: See `session-registry.md` row: `Phase 11 - Real Business Loop`.
+- Goal: Replace static placeholder-driven demo logic with a real session-based business flow while retaining local fallback reliability.
+- Changes:
+  - Added CommunicationSession model with SessionRound and SessionStatus.
+  - Added ASR client contract with proxy-first and fallback behavior.
+  - Added Agent client contract with proxy-first and fallback behavior.
+  - Added localStorage-backed records with load and persist functions.
+  - Added API proxy skeleton in apps/api with /api/health, /api/transcribe, /api/agent/run routes.
+  - DemoPage now creates sessions on bridge open, appends rounds after ASR+Agent, and persists records to localStorage.
+  - Agent insight card displays provider source (proxy or fallback).
+  - No API key exposed to frontend.
+- Verification:
+  - pnpm --filter @silentbridge/web typecheck: passed
+  - pnpm build: passed
+  - No frontend API key usage: passed
+  - Browser flow: create session -> transcribe -> run agent -> confirm -> save -> reload records: passed
+- Evidence:
+  - assets/20-trae-phase11-plan-execution.png
+  - assets/21-trae-phase11-completion-summary.png
