@@ -28,6 +28,11 @@ import {
 } from "./session-store";
 import type { CommunicationSession } from "./session-types";
 import { inferFlowIdFromText, normalizeUserText } from "./real-input-engine";
+import {
+  clearBridgeProgressDraft,
+  loadBridgeProgressDraft,
+  saveBridgeProgressDraft
+} from "./bridge-progress-store";
 
 type RecordsMode = "list" | "detail";
 
@@ -587,19 +592,22 @@ function BottomNav({
 export function DemoPage() {
   const contentRef = useRef<HTMLElement>(null);
   const replyRunIdRef = useRef(0);
-  const [activeTab, setActiveTab] = useState<AppTab>("home");
-  const [bridgeStep, setBridgeStep] = useState<BridgeStep>("show");
-  const [displayMessage, setDisplayMessage] = useState(defaultMessage);
-  const [bridgeSourceLabel, setBridgeSourceLabel] = useState("默认开场白");
-  const [activeFlowId, setActiveFlowId] = useState<DemoFlowId>(defaultFlowId);
-  const [activeSession, setActiveSession] = useState<CommunicationSession>(() =>
-    createCommunicationSession({
-      flowId: defaultFlowId,
-      sourceLabel: "默认开场白",
-      prompt: defaultMessage
-    })
+  const restoredDraft = useMemo(() => loadBridgeProgressDraft(), []);
+  const [activeTab, setActiveTab] = useState<AppTab>(restoredDraft?.activeTab ?? "home");
+  const [bridgeStep, setBridgeStep] = useState<BridgeStep>(restoredDraft?.bridgeStep ?? "show");
+  const [displayMessage, setDisplayMessage] = useState(restoredDraft?.displayMessage ?? defaultMessage);
+  const [bridgeSourceLabel, setBridgeSourceLabel] = useState(restoredDraft?.bridgeSourceLabel ?? "默认开场白");
+  const [activeFlowId, setActiveFlowId] = useState<DemoFlowId>(restoredDraft?.activeFlowId ?? defaultFlowId);
+  const [activeSession, setActiveSession] = useState<CommunicationSession>(
+    () =>
+      restoredDraft?.activeSession ??
+      createCommunicationSession({
+        flowId: defaultFlowId,
+        sourceLabel: "默认开场白",
+        prompt: defaultMessage
+      })
   );
-  const [visibleCaptions, setVisibleCaptions] = useState<CaptionLine[]>([]);
+  const [visibleCaptions, setVisibleCaptions] = useState<CaptionLine[]>(restoredDraft?.visibleCaptions ?? []);
   const [isCapturing, setIsCapturing] = useState(false);
   const [records, setRecords] = useState<RecordItem[]>(() => loadStoredRecords(initialRecords));
   const [selectedRecordId, setSelectedRecordId] = useState(() => {
@@ -609,12 +617,12 @@ export function DemoPage() {
   const [recordsMode, setRecordsMode] = useState<RecordsMode>("list");
   const [activePhraseId, setActivePhraseId] = useState<string>();
   const [justSavedRecordId, setJustSavedRecordId] = useState<string>();
-  const [asrStatus, setAsrStatus] = useState<AsrStatus>("idle");
-  const [agentResult, setAgentResult] = useState<AgentRunResult>();
-  const [agentProvider, setAgentProvider] = useState<"proxy" | "fallback">("fallback");
+  const [asrStatus, setAsrStatus] = useState<AsrStatus>(restoredDraft?.asrStatus ?? "idle");
+  const [agentResult, setAgentResult] = useState<AgentRunResult | undefined>(restoredDraft?.agentResult);
+  const [agentProvider, setAgentProvider] = useState<"proxy" | "fallback">(restoredDraft?.agentProvider ?? "fallback");
   const [homeMessageDraft, setHomeMessageDraft] = useState(defaultMessage);
-  const [replyDraft, setReplyDraft] = useState("");
-  const [processedReplyDraft, setProcessedReplyDraft] = useState("");
+  const [replyDraft, setReplyDraft] = useState(restoredDraft?.replyDraft ?? "");
+  const [processedReplyDraft, setProcessedReplyDraft] = useState(restoredDraft?.processedReplyDraft ?? "");
 
   const activeFlow = demoFlows[activeFlowId];
   const latestRecord = useMemo(() => records[0], [records]);
@@ -731,6 +739,40 @@ export function DemoPage() {
     return () => window.clearTimeout(timer);
   }, [justSavedRecordId]);
 
+  useEffect(() => {
+    if (activeTab !== "bridge") {
+      return;
+    }
+
+    saveBridgeProgressDraft({
+      activeTab,
+      bridgeStep,
+      displayMessage,
+      bridgeSourceLabel,
+      activeFlowId,
+      activeSession,
+      visibleCaptions,
+      asrStatus,
+      agentResult,
+      agentProvider,
+      replyDraft,
+      processedReplyDraft
+    });
+  }, [
+    activeTab,
+    bridgeStep,
+    displayMessage,
+    bridgeSourceLabel,
+    activeFlowId,
+    activeSession,
+    visibleCaptions,
+    asrStatus,
+    agentResult,
+    agentProvider,
+    replyDraft,
+    processedReplyDraft
+  ]);
+
   const resetReplyProgress = () => {
     replyRunIdRef.current += 1;
     setVisibleCaptions([]);
@@ -746,6 +788,7 @@ export function DemoPage() {
     sourceLabel = "默认开场白",
     flowId: DemoFlowId = defaultFlowId
   ) => {
+    clearBridgeProgressDraft();
     const nextSession = createCommunicationSession({ flowId, sourceLabel, prompt: message });
     setActiveSession(nextSession);
     setActiveFlowId(flowId);
@@ -904,6 +947,7 @@ export function DemoPage() {
   };
 
   const saveCurrentRecord = () => {
+    clearBridgeProgressDraft();
     const savedRecord = createRecordFromSession({ session: activeSession, flow: activeFlow });
     const nextRecords = [savedRecord, ...records];
 
