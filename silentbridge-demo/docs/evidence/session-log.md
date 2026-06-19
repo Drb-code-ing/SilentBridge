@@ -4,7 +4,7 @@
 SilentBridge 无声桥
 
 ## 当前阶段
-Phase 12 - Real Input Pilot
+Phase 13 - Core Function Completion
 
 ## Session ID 管理
 所有 Trae session ID 统一维护在 `session-registry.md`。本文件只记录阶段过程、验收和证据截图。
@@ -374,3 +374,29 @@ Phase 05 - 真实语音识别、转写和 AI 摘要链路
 - Evidence:
   - assets/22-trae-phase12-real-input-plan.png
   - assets/23-trae-phase12-completion-summary.png
+
+---
+
+## Phase 13 - Core Function Completion
+
+- Time: 2026-06-19
+- Session Registry Reference: See `session-registry.md` row: `Phase 13 - Core Function Completion`.
+- Goal: Complete the core mobile product workflow before judge-demo polish.
+- Changes:
+  - Added microphone entry skeleton with graceful manual fallback.
+  - Added retry/cancel/start-new controls for bridge flow recovery.
+  - Added contextual follow-up from saved records.
+  - Added record delete/reset management.
+  - Added runtime status card for ASR/Agent configuration transparency.
+- Verification:
+  - pnpm typecheck: passed
+  - pnpm build: passed
+  - Browser flow: manual reply -> agent -> save -> continue follow-up: passed
+  - Browser flow: microphone entry -> manual fallback remains available: passed
+  - Record delete/reset: passed
+  - Refresh restore regression: passed
+  - 360px/390px mobile overflow check: passed
+  - Console warning/error check: passed
+- Evidence:
+  - assets/24-trae-phase13-core-function-plan.png
+  - assets/25-trae-phase13-completion-review.png
