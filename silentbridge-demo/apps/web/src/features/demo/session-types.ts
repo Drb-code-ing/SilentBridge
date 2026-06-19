@@ -13,6 +13,13 @@ export type SessionStatus =
 
 export type InputMode = "demo_seed" | "manual_reply" | "microphone_ready";
 
+export interface ContinuationContext {
+  parentRecordId: string;
+  parentTitle: string;
+  parentSummary: string;
+  suggestedPrompt: string;
+}
+
 export interface SessionRound {
   id: string;
   roundIndex: number;
@@ -32,6 +39,7 @@ export interface CommunicationSession {
   rounds: SessionRound[];
   inputMode: InputMode;
   replyDraft?: string;
+  continuation?: ContinuationContext;
   createdAt: number;
   updatedAt: number;
   savedRecordId?: string;

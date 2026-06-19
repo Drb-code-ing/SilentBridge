@@ -25,6 +25,27 @@ export function createCommunicationSession(input: {
   };
 }
 
+export function createContinuationSession(input: {
+  record: RecordItem;
+  prompt: string;
+}): CommunicationSession {
+  const session = createCommunicationSession({
+    flowId: input.record.flowId,
+    sourceLabel: `${input.record.title} · 继续追问`,
+    prompt: input.prompt
+  });
+
+  return {
+    ...session,
+    continuation: {
+      parentRecordId: input.record.id,
+      parentTitle: input.record.title,
+      parentSummary: input.record.summary,
+      suggestedPrompt: input.prompt
+    }
+  };
+}
+
 export function appendSessionRound(input: {
   session: CommunicationSession;
   prompt: string;
@@ -87,11 +108,16 @@ export function createRecordFromSession(input: {
       : transcriptText
     : input.flow.savedRecord.summary;
 
+  const isContinuation = Boolean(input.session.continuation);
+  const recordTitle = isContinuation
+    ? `${input.session.continuation?.parentTitle ?? input.session.sourceLabel} · 追问`
+    : input.session.sourceLabel;
+
   return {
     ...input.flow.savedRecord,
     id: `record-${input.session.id}`,
     time: "刚刚",
-    title: input.session.sourceLabel,
+    title: recordTitle,
     summary: shortSummary,
     keyPoints: latestRound?.understanding?.confirmed.slice(0, 3) ?? input.flow.savedRecord.keyPoints,
     nextStep: latestRound?.understanding?.suggestedQuestion ?? input.flow.savedRecord.nextStep,

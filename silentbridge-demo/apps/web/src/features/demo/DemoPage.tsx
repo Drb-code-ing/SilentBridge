@@ -22,6 +22,7 @@ import { runSessionAgent } from "./agent-client";
 import {
   appendSessionRound,
   createCommunicationSession,
+  createContinuationSession,
   createRecordFromSession,
   loadStoredRecords,
   persistRecords
@@ -33,6 +34,9 @@ import {
   loadBridgeProgressDraft,
   saveBridgeProgressDraft
 } from "./bridge-progress-store";
+import { requestMicrophoneAccess, type AudioCaptureState } from "./audio-capture-client";
+import { getAgentRuntimeStatus, type AgentRuntimeStatus } from "./agent-runtime-config";
+import { pickNextRecordId, removeRecord, resetRecords } from "./record-actions";
 
 type RecordsMode = "list" | "detail";
 
@@ -193,19 +197,18 @@ function CaptionPanel({
   visibleCaptions: CaptionLine[];
   isCapturing: boolean;
 }) {
+  const hasCaptions = visibleCaptions.length > 0;
+  const statusLabel = isCapturing ? "正在听" : hasCaptions ? "已抓到重点" : "等待对方回复";
+  const title = hasCaptions ? "对方的话已整理成文字" : "对方说完后会出现在这里";
+
   return (
     <section className="sb-caption-panel" aria-live="polite">
       <div className="sb-panel-head">
-        <span>{isCapturing ? "正在听" : "已抓到重点"}</span>
-        <strong>对方的话会变成文字</strong>
+        <span>{statusLabel}</span>
+        <strong>{title}</strong>
       </div>
       <div className="sb-caption-list">
-        {visibleCaptions.length === 0 ? (
-          <div className="sb-listening-empty">
-            <span />
-            <p>请让对方开始说，文字会一条一条出现。</p>
-          </div>
-        ) : (
+        {hasCaptions ? (
           visibleCaptions.map((line) => (
             <article
               className={line.important ? "sb-caption-line is-important" : "sb-caption-line"}
@@ -218,6 +221,11 @@ function CaptionPanel({
               <p>{line.text}</p>
             </article>
           ))
+        ) : (
+          <div className="sb-listening-empty">
+            <span />
+            <p>请让对方开始说，文字会一条一条出现。</p>
+          </div>
         )}
       </div>
     </section>
@@ -303,9 +311,15 @@ function BridgeView({
   agentResult,
   agentProvider,
   replyDraft,
+  flowNotice,
+  runtimeStatus,
   onReplyDraftChange,
   onUseDemoReply,
+  onUseMicrophone,
   onProcessReply,
+  onRetryReply,
+  onCancelRound,
+  onStartNew,
   onBackToShow,
   onBackToReply,
   onStartListening,
@@ -324,9 +338,15 @@ function BridgeView({
   agentResult?: AgentRunResult;
   agentProvider: "proxy" | "fallback";
   replyDraft: string;
+  flowNotice?: string;
+  runtimeStatus: AgentRuntimeStatus;
   onReplyDraftChange: (value: string) => void;
   onUseDemoReply: () => void;
+  onUseMicrophone: () => void;
   onProcessReply: () => void;
+  onRetryReply: () => void;
+  onCancelRound: () => void;
+  onStartNew: () => void;
   onBackToShow: () => void;
   onBackToReply: () => void;
   onStartListening: () => void;
@@ -349,6 +369,11 @@ function BridgeView({
 
       <ProgressDots step={step} />
 
+      {flowNotice && <div className="sb-flow-notice">{flowNotice}</div>}
+      {sourceLabel.includes("继续追问") && (
+        <div className="sb-continuation-hint">这次会接着上一条记录问，不用重新解释。</div>
+      )}
+
       {step === "show" && (
         <section className="sb-bridge-stage">
           <DisplayCard message={message} />
@@ -358,6 +383,9 @@ function BridgeView({
             </button>
             <button type="button" className="sb-secondary-button" onClick={onOpenPhrases}>
               换一句开场白
+            </button>
+            <button type="button" className="sb-secondary-button" onClick={onStartNew}>
+              开始新沟通
             </button>
           </div>
         </section>
@@ -385,6 +413,9 @@ function BridgeView({
             <button type="button" className="sb-text-button" onClick={onUseDemoReply}>
               填入演示回复
             </button>
+            <button type="button" className="sb-text-button" onClick={onUseMicrophone}>
+              用麦克风收听
+            </button>
             <button type="button" className="sb-text-button sb-text-button--primary" onClick={onProcessReply}>
               整理这段回复
             </button>
@@ -400,10 +431,26 @@ function BridgeView({
           {captionsDone && (
             <AgentInsightCard result={agentResult} provider={agentProvider} onConfirmQuestion={onConfirmQuestion} />
           )}
+          <section className="sb-runtime-card">
+            <div className="sb-panel-head">
+              <span>运行状态</span>
+              <strong>{runtimeStatus.agentMode === "proxy-ready" ? "后端代理" : "本地兜底 Agent"}</strong>
+            </div>
+            <p>{runtimeStatus.privacyNote}</p>
+            <div className="sb-runtime-tags">
+              <span>ASR: {runtimeStatus.asrMode === "browser-ready" ? "浏览器麦克风已准备" : "手动输入兜底"}</span>
+              <span>Graph: {runtimeStatus.graphName}</span>
+            </div>
+          </section>
           <div className="sb-bridge-actions">
             {captionsDone && (
               <button type="button" className="sb-secondary-button" onClick={onBackToReply}>
                 返回修改回复
+              </button>
+            )}
+            {captionsDone && (
+              <button type="button" className="sb-secondary-button" onClick={onRetryReply}>
+                重新整理
               </button>
             )}
             <button
@@ -414,8 +461,11 @@ function BridgeView({
             >
               保存这次重点
             </button>
-            <button type="button" className="sb-secondary-button" onClick={onOpenPhrases}>
-              还想问一句
+            <button type="button" className="sb-secondary-button" onClick={onCancelRound}>
+              取消本轮
+            </button>
+            <button type="button" className="sb-secondary-button" onClick={onStartNew}>
+              开始新沟通
             </button>
           </div>
         </section>
@@ -432,7 +482,9 @@ function RecordsView({
   onSelectRecord,
   onBackToList,
   onContinue,
-  onOpenHome
+  onOpenHome,
+  onDeleteRecord,
+  onResetRecords
 }: {
   records: RecordItem[];
   selectedRecordId: string;
@@ -442,6 +494,8 @@ function RecordsView({
   onBackToList: () => void;
   onContinue: (record: RecordItem) => void;
   onOpenHome: () => void;
+  onDeleteRecord: (id: string) => void;
+  onResetRecords: () => void;
 }) {
   const selectedRecord = records.find((record) => record.id === selectedRecordId) ?? records[0];
   const showSavedNote = Boolean(justSavedRecordId && justSavedRecordId === selectedRecord.id);
@@ -452,6 +506,9 @@ function RecordsView({
         <section className="sb-page-title">
           <p className="sb-kicker">沟通小本本</p>
           <h1>留下来的话，之后还能用。</h1>
+          <button type="button" className="sb-text-button" onClick={onResetRecords}>
+            清空演示记录
+          </button>
         </section>
 
         <section className="sb-record-list" aria-label="历史沟通记录">
@@ -479,6 +536,13 @@ function RecordsView({
           返回记录列表
         </button>
         <span>{selectedRecord.time}</span>
+        <button
+          type="button"
+          className="sb-text-button"
+          onClick={() => onDeleteRecord(selectedRecord.id)}
+        >
+          删除这条
+        </button>
       </section>
 
       <section className="sb-record-detail">
@@ -623,9 +687,18 @@ export function DemoPage() {
   const [homeMessageDraft, setHomeMessageDraft] = useState(defaultMessage);
   const [replyDraft, setReplyDraft] = useState(restoredDraft?.replyDraft ?? "");
   const [processedReplyDraft, setProcessedReplyDraft] = useState(restoredDraft?.processedReplyDraft ?? "");
+  const [audioCaptureState, setAudioCaptureState] = useState<AudioCaptureState>({
+    support: { supported: false, reason: "unknown" },
+    permissionState: "unknown"
+  });
+  const [flowNotice, setFlowNotice] = useState<string>();
 
   const activeFlow = demoFlows[activeFlowId];
   const latestRecord = useMemo(() => records[0], [records]);
+  const runtimeStatus = getAgentRuntimeStatus({
+    microphoneReady:
+      audioCaptureState.support.supported && audioCaptureState.permissionState === "granted"
+  });
 
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0, behavior: "auto" });
@@ -789,6 +862,7 @@ export function DemoPage() {
     flowId: DemoFlowId = defaultFlowId
   ) => {
     clearBridgeProgressDraft();
+    setFlowNotice(undefined);
     const nextSession = createCommunicationSession({ flowId, sourceLabel, prompt: message });
     setActiveSession(nextSession);
     setActiveFlowId(flowId);
@@ -982,7 +1056,20 @@ export function DemoPage() {
   const handleContinueRecord = (record: RecordItem) => {
     setActivePhraseId(undefined);
     setJustSavedRecordId(undefined);
-    openBridge(record.actionPhrase, record.title, record.flowId);
+    clearBridgeProgressDraft();
+
+    const nextPrompt = record.nextStep.trim() || record.actionPhrase;
+    const nextSession = createContinuationSession({ record, prompt: nextPrompt });
+
+    setActiveSession(nextSession);
+    setActiveFlowId(record.flowId);
+    setDisplayMessage(nextPrompt);
+    setBridgeSourceLabel(`${record.title} · 继续追问`);
+    resetReplyProgress();
+    setReplyDraft("");
+    setFlowNotice(`正在基于「${record.title}」继续追问。`);
+    setBridgeStep("show");
+    setActiveTab("bridge");
   };
 
   const handleSelectRecord = (id: string) => {
@@ -996,6 +1083,62 @@ export function DemoPage() {
     }
 
     setActiveTab(tab);
+  };
+
+  const handleUseMicrophone = async () => {
+    setFlowNotice(undefined);
+    const nextAudioState = await requestMicrophoneAccess();
+    setAudioCaptureState(nextAudioState);
+
+    if (!nextAudioState.support.supported || nextAudioState.permissionState !== "granted") {
+      setFlowNotice("当前浏览器无法直接收听，请让对方打字、粘贴转文字结果，或使用演示回复。");
+      setIsCapturing(false);
+      setAsrStatus("idle");
+      return;
+    }
+
+    setFlowNotice("麦克风已准备好。初赛 Demo 会保留手动输入作为稳定兜底。");
+    setAsrStatus("listening");
+  };
+
+  const retryCurrentReply = () => {
+    setFlowNotice(undefined);
+    const normalizedReply = normalizeUserText(replyDraft, "", 280);
+    if (!normalizedReply) {
+      setFlowNotice("请先输入或填入一段对方回复。");
+      return;
+    }
+
+    processReply();
+  };
+
+  const cancelCurrentRound = () => {
+    setFlowNotice("已取消本轮接收，可以回到上一步或重新输入。");
+    resetReplyProgress();
+    setReplyDraft("");
+    setBridgeStep("show");
+  };
+
+  const startNewCommunication = () => {
+    setFlowNotice(undefined);
+    setHomeMessageDraft(defaultMessage);
+    openBridge(defaultMessage, "默认开场白", defaultFlowId);
+  };
+
+  const handleDeleteRecord = (id: string) => {
+    const nextRecords = removeRecord(records, id, initialRecords);
+    setRecords(nextRecords);
+    persistRecords(nextRecords);
+    setSelectedRecordId(pickNextRecordId(nextRecords, selectedRecordId) ?? initialRecords[0].id);
+    setRecordsMode("list");
+  };
+
+  const handleResetRecords = () => {
+    const nextRecords = resetRecords(initialRecords);
+    setRecords(nextRecords);
+    persistRecords(nextRecords);
+    setSelectedRecordId(nextRecords[0].id);
+    setRecordsMode("list");
   };
 
   const startFromHomeDraft = () => {
@@ -1033,9 +1176,15 @@ export function DemoPage() {
           agentResult={agentResult}
           agentProvider={agentProvider}
           replyDraft={replyDraft}
+          flowNotice={flowNotice}
+          runtimeStatus={runtimeStatus}
           onReplyDraftChange={handleReplyDraftChange}
           onUseDemoReply={useDemoReply}
+          onUseMicrophone={handleUseMicrophone}
           onProcessReply={processReply}
+          onRetryReply={retryCurrentReply}
+          onCancelRound={cancelCurrentRound}
+          onStartNew={startNewCommunication}
           onBackToShow={backToShowStep}
           onBackToReply={backToReplyInput}
           onStartListening={openReplyComposer}
@@ -1057,6 +1206,8 @@ export function DemoPage() {
           onBackToList={() => setRecordsMode("list")}
           onContinue={handleContinueRecord}
           onOpenHome={() => setActiveTab("home")}
+          onDeleteRecord={handleDeleteRecord}
+          onResetRecords={handleResetRecords}
         />
       );
     }
