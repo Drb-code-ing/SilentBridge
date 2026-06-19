@@ -1,10 +1,19 @@
 import type { DemoFlow } from "./demo-content";
 import type { TranscribeRequest, TranscribeResponse } from "./api-contracts";
+import { createManualTranscript } from "./real-input-engine";
 
 export async function transcribeSession(input: {
   request: TranscribeRequest;
   fallbackFlow: DemoFlow;
 }): Promise<TranscribeResponse> {
+  if (input.request.source === "manual" && input.request.manualText) {
+    return {
+      ok: true,
+      provider: "manual",
+      transcript: createManualTranscript({ text: input.request.manualText })
+    };
+  }
+
   if (!shouldUseApiProxy()) {
     return createFallbackTranscription(input.fallbackFlow);
   }

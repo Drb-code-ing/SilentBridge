@@ -1190,3 +1190,56 @@ button:focus-visible {
   padding: 0;
   list-style: none;
 }
+
+/* Phase 12: Real input styles */
+
+.sb-input-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(34, 34, 34, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.sb-input-card span {
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(34, 34, 34, 0.58);
+}
+
+.sb-input-card textarea {
+  width: 100%;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #202020;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.sb-input-card textarea::placeholder {
+  color: rgba(34, 34, 34, 0.38);
+}
+
+.sb-input-card--reply {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.sb-text-button {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  color: #3b6f8f;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.sb-text-button--primary {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #202020;
+  color: #ffffff;
+}

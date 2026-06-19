@@ -7,7 +7,7 @@ export async function runSessionAgent(input: {
   fallbackFlow: DemoFlow;
 }): Promise<AgentRunResponse> {
   if (!shouldUseApiProxy()) {
-    return createFallbackAgentResponse(input.fallbackFlow);
+    return createFallbackAgentResponse({ fallbackFlow: input.fallbackFlow, request: input.request });
   }
 
   try {
@@ -28,14 +28,19 @@ export async function runSessionAgent(input: {
 
     throw new Error("agent response not ok");
   } catch {
-    return createFallbackAgentResponse(input.fallbackFlow);
+    return createFallbackAgentResponse({ fallbackFlow: input.fallbackFlow, request: input.request });
   }
 }
 
-function createFallbackAgentResponse(fallbackFlow: DemoFlow): AgentRunResponse {
+function createFallbackAgentResponse(input: {
+  fallbackFlow: DemoFlow;
+  request: AgentRunRequest;
+}): AgentRunResponse {
+  const transcript = input.request.transcript.length > 0 ? input.request.transcript : input.fallbackFlow.captions;
   const result = runDemoAgent({
-    flow: fallbackFlow,
-    transcript: fallbackFlow.captions
+    flow: input.fallbackFlow,
+    transcript,
+    userMessage: input.request.userMessage
   });
 
   return {
