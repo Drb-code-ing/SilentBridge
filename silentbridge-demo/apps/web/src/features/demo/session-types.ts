@@ -1,5 +1,5 @@
 import type { AiUnderstanding, DemoFlowId } from "./demo-content";
-import type { TranscriptSegmentPayload } from "./api-contracts";
+import type { TranscriptProvider, TranscriptSegmentPayload } from "./api-contracts";
 
 export type SessionStatus =
   | "draft"
@@ -11,13 +11,15 @@ export type SessionStatus =
   | "saved"
   | "failed";
 
+export type InputMode = "demo_seed" | "manual_reply" | "microphone_ready";
+
 export interface SessionRound {
   id: string;
   roundIndex: number;
   prompt: string;
   transcript: TranscriptSegmentPayload[];
   understanding?: AiUnderstanding;
-  provider: "proxy" | "fallback";
+  provider: TranscriptProvider | "proxy";
   createdAt: number;
 }
 
@@ -28,6 +30,8 @@ export interface CommunicationSession {
   status: SessionStatus;
   currentPrompt: string;
   rounds: SessionRound[];
+  inputMode: InputMode;
+  replyDraft?: string;
   createdAt: number;
   updatedAt: number;
   savedRecordId?: string;

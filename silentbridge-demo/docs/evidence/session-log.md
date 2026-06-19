@@ -4,7 +4,7 @@
 SilentBridge 无声桥
 
 ## 当前阶段
-Phase 10 - AI Understanding Loop
+Phase 12 - Real Input Pilot
 
 ## Session ID 管理
 所有 Trae session ID 统一维护在 `session-registry.md`。本文件只记录阶段过程、验收和证据截图。
@@ -349,3 +349,28 @@ Phase 05 - 真实语音识别、转写和 AI 摘要链路
 - Evidence:
   - assets/20-trae-phase11-plan-execution.png
   - assets/21-trae-phase11-completion-summary.png
+
+---
+
+## Phase 12 - Real Input Pilot
+
+- Time: 2026-06-19
+- Session Registry Reference: See `session-registry.md` row: `Phase 12 - Real Input Pilot`.
+- Goal: Make the demo respond to real typed communication content instead of only fixed fallback scripts.
+- Changes:
+  - Added real input engine with text normalization, flow inference, manual transcript builder, and dynamic understanding builder.
+  - Added manual transcript path in ASR client.
+  - Updated fallback Agent to use real transcript text via createUnderstandingFromTranscript.
+  - Updated mobile bridge flow with reply input area and demo reply button.
+  - Updated saved records to reflect real session content (title, summary, keyPoints, nextStep).
+  - Added home page message draft input.
+  - Added mobile-native input CSS styles.
+- Verification:
+  - pnpm typecheck: passed
+  - pnpm build: passed
+  - Browser flow: free input -> manual reply -> Agent understanding -> save -> reload record: passed
+  - 360px mobile overflow check: passed
+  - Console warning/error check: passed
+- Evidence:
+  - assets/22-trae-phase12-real-input-plan.png
+  - assets/23-trae-phase12-completion-summary.png

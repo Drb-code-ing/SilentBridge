@@ -7,16 +7,20 @@ export interface TranscriptSegmentPayload {
   confidence?: number;
 }
 
+export type TranscriptSource = "microphone" | "fallback" | "manual";
+export type TranscriptProvider = "proxy" | "fallback" | "manual";
+
 export interface TranscribeRequest {
   sessionId: string;
   flowId: string;
-  source: "microphone" | "fallback";
+  source: TranscriptSource;
   audioRef?: string;
+  manualText?: string;
 }
 
 export interface TranscribeResponse {
   ok: true;
-  provider: "proxy" | "fallback";
+  provider: TranscriptProvider;
   transcript: TranscriptSegmentPayload[];
 }
 

@@ -1,4 +1,6 @@
 import type { AiUnderstanding, CaptionLine, DemoFlow } from "./demo-content";
+import type { TranscriptSegmentPayload } from "./api-contracts";
+import { createUnderstandingFromTranscript } from "./real-input-engine";
 
 export type AgentNodeId =
   | "asr_capture"
@@ -20,7 +22,8 @@ export interface AgentEdge {
 
 export interface AgentRunInput {
   flow: DemoFlow;
-  transcript: CaptionLine[];
+  transcript: Array<CaptionLine | TranscriptSegmentPayload>;
+  userMessage?: string;
 }
 
 export interface AgentRunResult {
@@ -70,6 +73,10 @@ export function runDemoAgent(input: AgentRunInput): AgentRunResult {
   return {
     graphName: silentBridgeAgentGraph.name,
     visitedNodes: silentBridgeAgentGraph.nodes.map((node) => node.id),
-    understanding: input.flow.aiUnderstanding
+    understanding: createUnderstandingFromTranscript({
+      flow: input.flow,
+      transcript: input.transcript,
+      userMessage: input.userMessage ?? ""
+    })
   };
 }

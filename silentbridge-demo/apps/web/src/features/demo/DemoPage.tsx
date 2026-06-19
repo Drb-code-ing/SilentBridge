@@ -27,6 +27,14 @@ import {
   persistRecords
 } from "./session-store";
 import type { CommunicationSession } from "./session-types";
+import { inferFlowIdFromText, normalizeUserText } from "./real-input-engine";
+import {
+  clearBridgeProgressDraft,
+  loadBridgeProgressDraft,
+  saveBridgeProgressDraft
+} from "./bridge-progress-store";
+
+type RecordsMode = "list" | "detail";
 
 function Mascot() {
   return (
@@ -59,12 +67,16 @@ function AppTopBar({ activeTab, onGoHome }: { activeTab: AppTab; onGoHome: () =>
 
 function HomeView({
   latestRecord,
+  messageDraft,
+  onMessageDraftChange,
   onStart,
   onPickScenario,
   onOpenRecord,
   onOpenPhrases
 }: {
   latestRecord: RecordItem;
+  messageDraft: string;
+  onMessageDraftChange: (value: string) => void;
   onStart: () => void;
   onPickScenario: (scenario: QuickScenario) => void;
   onOpenRecord: (id: string) => void;
@@ -82,6 +94,15 @@ function HomeView({
           <h1>听不清时，先把手机递过去。</h1>
           <p>无声桥会先展示一句开场白，再接住对方说的话，最后留下重点。</p>
         </div>
+        <label className="sb-input-card">
+          <span>我想让对方先看到</span>
+          <textarea
+            value={messageDraft}
+            onChange={(event) => onMessageDraftChange(event.target.value)}
+            maxLength={120}
+            rows={3}
+          />
+        </label>
         <button type="button" className="sb-primary-button" onClick={onStart}>
           开始现场沟通
         </button>
@@ -281,6 +302,12 @@ function BridgeView({
   asrStatus,
   agentResult,
   agentProvider,
+  replyDraft,
+  onReplyDraftChange,
+  onUseDemoReply,
+  onProcessReply,
+  onBackToShow,
+  onBackToReply,
   onStartListening,
   onSave,
   onConfirmQuestion,
@@ -296,12 +323,21 @@ function BridgeView({
   asrStatus: AsrStatus;
   agentResult?: AgentRunResult;
   agentProvider: "proxy" | "fallback";
+  replyDraft: string;
+  onReplyDraftChange: (value: string) => void;
+  onUseDemoReply: () => void;
+  onProcessReply: () => void;
+  onBackToShow: () => void;
+  onBackToReply: () => void;
   onStartListening: () => void;
   onSave: () => void;
   onConfirmQuestion: () => void;
   onOpenPhrases: () => void;
 }) {
-  const captionsDone = visibleCaptions.length >= expectedCaptionCount && !isCapturing;
+  const captionsDone =
+    !isCapturing &&
+    visibleCaptions.length > 0 &&
+    (Boolean(agentResult) || visibleCaptions.length >= expectedCaptionCount);
 
   return (
     <div className="sb-view">
@@ -318,7 +354,7 @@ function BridgeView({
           <DisplayCard message={message} />
           <div className="sb-bridge-actions">
             <button type="button" className="sb-primary-button" onClick={onStartListening}>
-              对方开始说了
+              开始接收回复
             </button>
             <button type="button" className="sb-secondary-button" onClick={onOpenPhrases}>
               换一句开场白
@@ -329,6 +365,30 @@ function BridgeView({
 
       {step === "listen" && (
         <section className="sb-bridge-stage">
+          <section className="sb-input-card sb-input-card--reply">
+            <div className="sb-input-card__head">
+              <span>请对方回复</span>
+              <button type="button" className="sb-text-button" onClick={onBackToShow}>
+                返回上一步
+              </button>
+            </div>
+            <label className="sb-input-card__field">
+              <span className="sr-only">对方回复内容</span>
+            <textarea
+              value={replyDraft}
+              onChange={(event) => onReplyDraftChange(event.target.value)}
+              placeholder="请对方直接打字、让同行者帮忙输入，或粘贴转文字结果。"
+              maxLength={280}
+              rows={4}
+            />
+            </label>
+            <button type="button" className="sb-text-button" onClick={onUseDemoReply}>
+              填入演示回复
+            </button>
+            <button type="button" className="sb-text-button sb-text-button--primary" onClick={onProcessReply}>
+              整理这段回复
+            </button>
+          </section>
           <AsrStatusPanel status={asrStatus} />
           <CaptionPanel visibleCaptions={visibleCaptions} isCapturing={isCapturing} />
           {captionsDone && (
@@ -341,6 +401,11 @@ function BridgeView({
             <AgentInsightCard result={agentResult} provider={agentProvider} onConfirmQuestion={onConfirmQuestion} />
           )}
           <div className="sb-bridge-actions">
+            {captionsDone && (
+              <button type="button" className="sb-secondary-button" onClick={onBackToReply}>
+                返回修改回复
+              </button>
+            )}
             <button
               type="button"
               className="sb-primary-button"
@@ -362,39 +427,58 @@ function BridgeView({
 function RecordsView({
   records,
   selectedRecordId,
+  mode,
   justSavedRecordId,
   onSelectRecord,
-  onContinue
+  onBackToList,
+  onContinue,
+  onOpenHome
 }: {
   records: RecordItem[];
   selectedRecordId: string;
+  mode: RecordsMode;
   justSavedRecordId?: string;
   onSelectRecord: (id: string) => void;
+  onBackToList: () => void;
   onContinue: (record: RecordItem) => void;
+  onOpenHome: () => void;
 }) {
   const selectedRecord = records.find((record) => record.id === selectedRecordId) ?? records[0];
   const showSavedNote = Boolean(justSavedRecordId && justSavedRecordId === selectedRecord.id);
 
-  return (
-    <div className="sb-view">
-      <section className="sb-page-title">
-        <p className="sb-kicker">沟通小本本</p>
-        <h1>留下来的话，之后还能用。</h1>
-      </section>
+  if (mode === "list") {
+    return (
+      <div className="sb-view">
+        <section className="sb-page-title">
+          <p className="sb-kicker">沟通小本本</p>
+          <h1>留下来的话，之后还能用。</h1>
+        </section>
 
-      <section className="sb-record-list" aria-label="历史沟通记录">
-        {records.map((record) => (
-          <button
-            type="button"
-            className={selectedRecord.id === record.id ? "sb-record-row is-active" : "sb-record-row"}
-            key={record.id}
-            onClick={() => onSelectRecord(record.id)}
-          >
-            <span>{record.time}</span>
-            <strong>{record.title}</strong>
-            <small>{record.place}</small>
-          </button>
-        ))}
+        <section className="sb-record-list" aria-label="历史沟通记录">
+          {records.map((record) => (
+            <button
+              type="button"
+              className={selectedRecord.id === record.id ? "sb-record-row is-active" : "sb-record-row"}
+              key={record.id}
+              onClick={() => onSelectRecord(record.id)}
+            >
+              <span>{record.time}</span>
+              <strong>{record.title}</strong>
+              <small>{record.place}</small>
+            </button>
+          ))}
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="sb-view sb-record-detail-view">
+      <section className="sb-record-detail-head">
+        <button type="button" className="sb-text-button" onClick={onBackToList}>
+          返回记录列表
+        </button>
+        <span>{selectedRecord.time}</span>
       </section>
 
       <section className="sb-record-detail">
@@ -424,10 +508,16 @@ function RecordsView({
           <span>下一步</span>
           <strong>{selectedRecord.nextStep}</strong>
         </div>
-        <button type="button" className="sb-primary-button" onClick={() => onContinue(selectedRecord)}>
-          用这条记录继续问
-        </button>
       </section>
+
+      <div className="sb-record-action-bar">
+        <button type="button" className="sb-secondary-button" onClick={onOpenHome}>
+          回到首页
+        </button>
+        <button type="button" className="sb-primary-button" onClick={() => onContinue(selectedRecord)}>
+          继续追问
+        </button>
+      </div>
     </div>
   );
 }
@@ -501,37 +591,45 @@ function BottomNav({
 
 export function DemoPage() {
   const contentRef = useRef<HTMLElement>(null);
-  const [activeTab, setActiveTab] = useState<AppTab>("home");
-  const [bridgeStep, setBridgeStep] = useState<BridgeStep>("show");
-  const [displayMessage, setDisplayMessage] = useState(defaultMessage);
-  const [bridgeSourceLabel, setBridgeSourceLabel] = useState("默认开场白");
-  const [activeFlowId, setActiveFlowId] = useState<DemoFlowId>(defaultFlowId);
-  const [activeSession, setActiveSession] = useState<CommunicationSession>(() =>
-    createCommunicationSession({
-      flowId: defaultFlowId,
-      sourceLabel: "默认开场白",
-      prompt: defaultMessage
-    })
+  const replyRunIdRef = useRef(0);
+  const restoredDraft = useMemo(() => loadBridgeProgressDraft(), []);
+  const [activeTab, setActiveTab] = useState<AppTab>(restoredDraft?.activeTab ?? "home");
+  const [bridgeStep, setBridgeStep] = useState<BridgeStep>(restoredDraft?.bridgeStep ?? "show");
+  const [displayMessage, setDisplayMessage] = useState(restoredDraft?.displayMessage ?? defaultMessage);
+  const [bridgeSourceLabel, setBridgeSourceLabel] = useState(restoredDraft?.bridgeSourceLabel ?? "默认开场白");
+  const [activeFlowId, setActiveFlowId] = useState<DemoFlowId>(restoredDraft?.activeFlowId ?? defaultFlowId);
+  const [activeSession, setActiveSession] = useState<CommunicationSession>(
+    () =>
+      restoredDraft?.activeSession ??
+      createCommunicationSession({
+        flowId: defaultFlowId,
+        sourceLabel: "默认开场白",
+        prompt: defaultMessage
+      })
   );
-  const [visibleCaptions, setVisibleCaptions] = useState<CaptionLine[]>([]);
+  const [visibleCaptions, setVisibleCaptions] = useState<CaptionLine[]>(restoredDraft?.visibleCaptions ?? []);
   const [isCapturing, setIsCapturing] = useState(false);
   const [records, setRecords] = useState<RecordItem[]>(() => loadStoredRecords(initialRecords));
   const [selectedRecordId, setSelectedRecordId] = useState(() => {
     const stored = loadStoredRecords(initialRecords);
     return stored[0]?.id ?? initialRecords[0].id;
   });
+  const [recordsMode, setRecordsMode] = useState<RecordsMode>("list");
   const [activePhraseId, setActivePhraseId] = useState<string>();
   const [justSavedRecordId, setJustSavedRecordId] = useState<string>();
-  const [asrStatus, setAsrStatus] = useState<AsrStatus>("idle");
-  const [agentResult, setAgentResult] = useState<AgentRunResult>();
-  const [agentProvider, setAgentProvider] = useState<"proxy" | "fallback">("fallback");
+  const [asrStatus, setAsrStatus] = useState<AsrStatus>(restoredDraft?.asrStatus ?? "idle");
+  const [agentResult, setAgentResult] = useState<AgentRunResult | undefined>(restoredDraft?.agentResult);
+  const [agentProvider, setAgentProvider] = useState<"proxy" | "fallback">(restoredDraft?.agentProvider ?? "fallback");
+  const [homeMessageDraft, setHomeMessageDraft] = useState(defaultMessage);
+  const [replyDraft, setReplyDraft] = useState(restoredDraft?.replyDraft ?? "");
+  const [processedReplyDraft, setProcessedReplyDraft] = useState(restoredDraft?.processedReplyDraft ?? "");
 
   const activeFlow = demoFlows[activeFlowId];
   const latestRecord = useMemo(() => records[0], [records]);
 
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0, behavior: "auto" });
-  }, [activeTab, bridgeStep, displayMessage]);
+  }, [activeTab, bridgeStep, displayMessage, recordsMode]);
 
   useEffect(() => {
     const activeCaptions = activeFlow.captions;
@@ -541,6 +639,7 @@ export function DemoPage() {
     }
 
     if (visibleCaptions.length >= activeCaptions.length) {
+      const runId = replyRunIdRef.current;
       setIsCapturing(false);
       setAsrStatus("transcribing");
 
@@ -560,6 +659,10 @@ export function DemoPage() {
             fallbackFlow: activeFlow
           });
           const transcript = transcribeResponse.transcript;
+          if (replyRunIdRef.current !== runId) {
+            return;
+          }
+
           setVisibleCaptions(transcript);
 
           const response = await runSessionAgent({
@@ -572,6 +675,10 @@ export function DemoPage() {
             },
             fallbackFlow: activeFlow
           });
+          if (replyRunIdRef.current !== runId) {
+            return;
+          }
+
           const result: AgentRunResult = {
             graphName: response.graphName,
             visitedNodes: response.visitedNodes as AgentRunResult["visitedNodes"],
@@ -591,6 +698,10 @@ export function DemoPage() {
             })
           );
         } catch {
+          if (replyRunIdRef.current !== runId) {
+            return;
+          }
+
           setAgentResult(fallbackResult);
           setAgentProvider("fallback");
           setAsrStatus("done");
@@ -628,31 +739,199 @@ export function DemoPage() {
     return () => window.clearTimeout(timer);
   }, [justSavedRecordId]);
 
-  const openBridge = (
-    message = defaultMessage,
-    sourceLabel = "默认开场白",
-    flowId: DemoFlowId = defaultFlowId
-  ) => {
-    const nextSession = createCommunicationSession({ flowId, sourceLabel, prompt: message });
-    setActiveSession(nextSession);
-    setActiveFlowId(flowId);
-    setDisplayMessage(message);
-    setBridgeSourceLabel(sourceLabel);
+  useEffect(() => {
+    if (activeTab !== "bridge") {
+      return;
+    }
+
+    saveBridgeProgressDraft({
+      activeTab,
+      bridgeStep,
+      displayMessage,
+      bridgeSourceLabel,
+      activeFlowId,
+      activeSession,
+      visibleCaptions,
+      asrStatus,
+      agentResult,
+      agentProvider,
+      replyDraft,
+      processedReplyDraft
+    });
+  }, [
+    activeTab,
+    bridgeStep,
+    displayMessage,
+    bridgeSourceLabel,
+    activeFlowId,
+    activeSession,
+    visibleCaptions,
+    asrStatus,
+    agentResult,
+    agentProvider,
+    replyDraft,
+    processedReplyDraft
+  ]);
+
+  const resetReplyProgress = () => {
+    replyRunIdRef.current += 1;
     setVisibleCaptions([]);
     setIsCapturing(false);
     setAsrStatus("idle");
     setAgentResult(undefined);
     setAgentProvider("fallback");
+    setProcessedReplyDraft("");
+  };
+
+  const openBridge = (
+    message = defaultMessage,
+    sourceLabel = "默认开场白",
+    flowId: DemoFlowId = defaultFlowId
+  ) => {
+    clearBridgeProgressDraft();
+    const nextSession = createCommunicationSession({ flowId, sourceLabel, prompt: message });
+    setActiveSession(nextSession);
+    setActiveFlowId(flowId);
+    setDisplayMessage(message);
+    setBridgeSourceLabel(sourceLabel);
+    resetReplyProgress();
+    setReplyDraft("");
     setBridgeStep("show");
     setActiveTab("bridge");
   };
 
-  const startListening = () => {
+  const openReplyComposer = () => {
+    setBridgeStep("listen");
+  };
+
+  const backToShowStep = () => {
+    setIsCapturing(false);
+    setAsrStatus((currentStatus) => (currentStatus === "listening" ? "idle" : currentStatus));
+    setBridgeStep("show");
+  };
+
+  const backToReplyInput = () => {
+    setIsCapturing(false);
+    setBridgeStep("listen");
+  };
+
+  const processReply = () => {
+    const normalizedReply = normalizeUserText(replyDraft, "", 280);
+
+    if (
+      normalizedReply &&
+      normalizedReply === processedReplyDraft &&
+      visibleCaptions.length > 0 &&
+      agentResult
+    ) {
+      setIsCapturing(false);
+      setAsrStatus("done");
+      setBridgeStep("listen");
+      return;
+    }
+
+    const runId = replyRunIdRef.current + 1;
+    replyRunIdRef.current = runId;
     setVisibleCaptions([]);
     setAgentResult(undefined);
+    setAgentProvider("fallback");
+    setProcessedReplyDraft("");
     setAsrStatus("listening");
     setBridgeStep("listen");
-    setIsCapturing(true);
+
+    if (!normalizedReply) {
+      setIsCapturing(true);
+      return;
+    }
+
+    setIsCapturing(false);
+    setAsrStatus("transcribing");
+
+    void runManualReplyPipeline(normalizedReply, runId);
+  };
+
+  const runManualReplyPipeline = async (manualReply: string, runId: number) => {
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 360));
+
+      const transcribeResponse = await transcribeSession({
+        request: {
+          sessionId: activeSession.id,
+          flowId: activeFlowId,
+          source: "manual",
+          manualText: manualReply
+        },
+        fallbackFlow: activeFlow
+      });
+
+      const transcript = transcribeResponse.transcript;
+      if (replyRunIdRef.current !== runId) {
+        return;
+      }
+
+      setVisibleCaptions(transcript);
+
+      const response = await runSessionAgent({
+        request: {
+          sessionId: activeSession.id,
+          flowId: activeFlowId,
+          transcript,
+          userMessage: displayMessage,
+          round: activeSession.rounds.length + 1
+        },
+        fallbackFlow: activeFlow
+      });
+      if (replyRunIdRef.current !== runId) {
+        return;
+      }
+
+      const result: AgentRunResult = {
+        graphName: response.graphName,
+        visitedNodes: response.visitedNodes as AgentRunResult["visitedNodes"],
+        understanding: response.understanding
+      };
+
+      setAgentResult(result);
+      setAgentProvider(response.provider);
+      setAsrStatus("done");
+      setProcessedReplyDraft(manualReply);
+      setActiveSession((prevSession) =>
+        appendSessionRound({
+          session: prevSession,
+          prompt: displayMessage,
+          transcript,
+          agentResult: result,
+          provider: transcribeResponse.provider
+        })
+      );
+    } catch {
+      if (replyRunIdRef.current !== runId) {
+        return;
+      }
+
+      setAsrStatus("done");
+    }
+  };
+
+  const handleReplyDraftChange = (value: string) => {
+    const normalizedValue = normalizeUserText(value, "", 280);
+    const shouldInvalidateResult =
+      Boolean(agentResult) ||
+      visibleCaptions.length > 0 ||
+      asrStatus === "listening" ||
+      asrStatus === "transcribing";
+
+    setReplyDraft(value);
+
+    if (normalizedValue === processedReplyDraft || !shouldInvalidateResult) {
+      return;
+    }
+
+    resetReplyProgress();
+  };
+
+  const useDemoReply = () => {
+    handleReplyDraftChange(activeFlow.captions.map((line) => line.text).join(" "));
   };
 
   const handleConfirmQuestion = () => {
@@ -668,17 +947,16 @@ export function DemoPage() {
   };
 
   const saveCurrentRecord = () => {
+    clearBridgeProgressDraft();
     const savedRecord = createRecordFromSession({ session: activeSession, flow: activeFlow });
     const nextRecords = [savedRecord, ...records];
 
     setRecords(nextRecords);
     persistRecords(nextRecords);
     setSelectedRecordId(savedRecord.id);
+    setRecordsMode("detail");
     setJustSavedRecordId(savedRecord.id);
-    setIsCapturing(false);
-    setVisibleCaptions([]);
-    setAsrStatus("idle");
-    setAgentResult(undefined);
+    resetReplyProgress();
     setBridgeStep("show");
     setActiveTab("records");
   };
@@ -697,6 +975,7 @@ export function DemoPage() {
 
   const handleOpenRecord = (id: string) => {
     setSelectedRecordId(id);
+    setRecordsMode("detail");
     setActiveTab("records");
   };
 
@@ -706,12 +985,33 @@ export function DemoPage() {
     openBridge(record.actionPhrase, record.title, record.flowId);
   };
 
+  const handleSelectRecord = (id: string) => {
+    setSelectedRecordId(id);
+    setRecordsMode("detail");
+  };
+
+  const handleTabChange = (tab: AppTab) => {
+    if (tab === "records") {
+      setRecordsMode("list");
+    }
+
+    setActiveTab(tab);
+  };
+
+  const startFromHomeDraft = () => {
+    const message = normalizeUserText(homeMessageDraft, defaultMessage);
+    const flowId = inferFlowIdFromText(message);
+    openBridge(message, "自由输入", flowId);
+  };
+
   const renderActiveView = () => {
     if (activeTab === "home") {
       return (
         <HomeView
           latestRecord={latestRecord}
-          onStart={() => openBridge(defaultMessage, "药店问药", defaultFlowId)}
+          messageDraft={homeMessageDraft}
+          onMessageDraftChange={setHomeMessageDraft}
+          onStart={startFromHomeDraft}
           onPickScenario={handlePickScenario}
           onOpenRecord={handleOpenRecord}
           onOpenPhrases={() => setActiveTab("phrases")}
@@ -732,7 +1032,13 @@ export function DemoPage() {
           asrStatus={asrStatus}
           agentResult={agentResult}
           agentProvider={agentProvider}
-          onStartListening={startListening}
+          replyDraft={replyDraft}
+          onReplyDraftChange={handleReplyDraftChange}
+          onUseDemoReply={useDemoReply}
+          onProcessReply={processReply}
+          onBackToShow={backToShowStep}
+          onBackToReply={backToReplyInput}
+          onStartListening={openReplyComposer}
           onSave={saveCurrentRecord}
           onConfirmQuestion={handleConfirmQuestion}
           onOpenPhrases={() => setActiveTab("phrases")}
@@ -745,9 +1051,12 @@ export function DemoPage() {
         <RecordsView
           records={records}
           selectedRecordId={selectedRecordId}
+          mode={recordsMode}
           justSavedRecordId={justSavedRecordId}
-          onSelectRecord={setSelectedRecordId}
+          onSelectRecord={handleSelectRecord}
+          onBackToList={() => setRecordsMode("list")}
           onContinue={handleContinueRecord}
+          onOpenHome={() => setActiveTab("home")}
         />
       );
     }
@@ -760,7 +1069,7 @@ export function DemoPage() {
       <div className="sb-device-frame">
         <AppTopBar activeTab={activeTab} onGoHome={() => setActiveTab("home")} />
         <section className="sb-app-content" ref={contentRef}>{renderActiveView()}</section>
-        <BottomNav activeTab={activeTab} onChange={setActiveTab} />
+        <BottomNav activeTab={activeTab} onChange={handleTabChange} />
       </div>
     </main>
   );
