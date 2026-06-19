@@ -29,6 +29,8 @@ import {
 import type { CommunicationSession } from "./session-types";
 import { inferFlowIdFromText, normalizeUserText } from "./real-input-engine";
 
+type RecordsMode = "list" | "detail";
+
 function Mascot() {
   return (
     <div className="sb-mascot" aria-hidden="true">
@@ -299,6 +301,8 @@ function BridgeView({
   onReplyDraftChange,
   onUseDemoReply,
   onProcessReply,
+  onBackToShow,
+  onBackToReply,
   onStartListening,
   onSave,
   onConfirmQuestion,
@@ -318,6 +322,8 @@ function BridgeView({
   onReplyDraftChange: (value: string) => void;
   onUseDemoReply: () => void;
   onProcessReply: () => void;
+  onBackToShow: () => void;
+  onBackToReply: () => void;
   onStartListening: () => void;
   onSave: () => void;
   onConfirmQuestion: () => void;
@@ -343,7 +349,7 @@ function BridgeView({
           <DisplayCard message={message} />
           <div className="sb-bridge-actions">
             <button type="button" className="sb-primary-button" onClick={onStartListening}>
-              对方说完了，记录回复
+              开始接收回复
             </button>
             <button type="button" className="sb-secondary-button" onClick={onOpenPhrases}>
               换一句开场白
@@ -355,11 +361,16 @@ function BridgeView({
       {step === "listen" && (
         <section className="sb-bridge-stage">
           <label className="sb-input-card sb-input-card--reply">
-            <span>对方说了什么</span>
+            <div className="sb-input-card__head">
+              <span>请对方回复</span>
+              <button type="button" className="sb-text-button" onClick={onBackToShow}>
+                返回上一步
+              </button>
+            </div>
             <textarea
               value={replyDraft}
               onChange={(event) => onReplyDraftChange(event.target.value)}
-              placeholder="可以输入你听到的关键词、对方打出来的话，或让旁人帮你复述。"
+              placeholder="请对方直接打字、让同行者帮忙输入，或粘贴转文字结果。"
               maxLength={280}
               rows={4}
             />
@@ -382,6 +393,11 @@ function BridgeView({
             <AgentInsightCard result={agentResult} provider={agentProvider} onConfirmQuestion={onConfirmQuestion} />
           )}
           <div className="sb-bridge-actions">
+            {captionsDone && (
+              <button type="button" className="sb-secondary-button" onClick={onBackToReply}>
+                返回修改回复
+              </button>
+            )}
             <button
               type="button"
               className="sb-primary-button"
@@ -403,39 +419,58 @@ function BridgeView({
 function RecordsView({
   records,
   selectedRecordId,
+  mode,
   justSavedRecordId,
   onSelectRecord,
-  onContinue
+  onBackToList,
+  onContinue,
+  onOpenHome
 }: {
   records: RecordItem[];
   selectedRecordId: string;
+  mode: RecordsMode;
   justSavedRecordId?: string;
   onSelectRecord: (id: string) => void;
+  onBackToList: () => void;
   onContinue: (record: RecordItem) => void;
+  onOpenHome: () => void;
 }) {
   const selectedRecord = records.find((record) => record.id === selectedRecordId) ?? records[0];
   const showSavedNote = Boolean(justSavedRecordId && justSavedRecordId === selectedRecord.id);
 
-  return (
-    <div className="sb-view">
-      <section className="sb-page-title">
-        <p className="sb-kicker">沟通小本本</p>
-        <h1>留下来的话，之后还能用。</h1>
-      </section>
+  if (mode === "list") {
+    return (
+      <div className="sb-view">
+        <section className="sb-page-title">
+          <p className="sb-kicker">沟通小本本</p>
+          <h1>留下来的话，之后还能用。</h1>
+        </section>
 
-      <section className="sb-record-list" aria-label="历史沟通记录">
-        {records.map((record) => (
-          <button
-            type="button"
-            className={selectedRecord.id === record.id ? "sb-record-row is-active" : "sb-record-row"}
-            key={record.id}
-            onClick={() => onSelectRecord(record.id)}
-          >
-            <span>{record.time}</span>
-            <strong>{record.title}</strong>
-            <small>{record.place}</small>
-          </button>
-        ))}
+        <section className="sb-record-list" aria-label="历史沟通记录">
+          {records.map((record) => (
+            <button
+              type="button"
+              className={selectedRecord.id === record.id ? "sb-record-row is-active" : "sb-record-row"}
+              key={record.id}
+              onClick={() => onSelectRecord(record.id)}
+            >
+              <span>{record.time}</span>
+              <strong>{record.title}</strong>
+              <small>{record.place}</small>
+            </button>
+          ))}
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="sb-view sb-record-detail-view">
+      <section className="sb-record-detail-head">
+        <button type="button" className="sb-text-button" onClick={onBackToList}>
+          返回记录列表
+        </button>
+        <span>{selectedRecord.time}</span>
       </section>
 
       <section className="sb-record-detail">
@@ -465,10 +500,16 @@ function RecordsView({
           <span>下一步</span>
           <strong>{selectedRecord.nextStep}</strong>
         </div>
-        <button type="button" className="sb-primary-button" onClick={() => onContinue(selectedRecord)}>
-          用这条记录继续问
-        </button>
       </section>
+
+      <div className="sb-record-action-bar">
+        <button type="button" className="sb-secondary-button" onClick={onOpenHome}>
+          回到首页
+        </button>
+        <button type="button" className="sb-primary-button" onClick={() => onContinue(selectedRecord)}>
+          继续追问
+        </button>
+      </div>
     </div>
   );
 }
@@ -561,6 +602,7 @@ export function DemoPage() {
     const stored = loadStoredRecords(initialRecords);
     return stored[0]?.id ?? initialRecords[0].id;
   });
+  const [recordsMode, setRecordsMode] = useState<RecordsMode>("list");
   const [activePhraseId, setActivePhraseId] = useState<string>();
   const [justSavedRecordId, setJustSavedRecordId] = useState<string>();
   const [asrStatus, setAsrStatus] = useState<AsrStatus>("idle");
@@ -574,7 +616,7 @@ export function DemoPage() {
 
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0, behavior: "auto" });
-  }, [activeTab, bridgeStep, displayMessage]);
+  }, [activeTab, bridgeStep, displayMessage, recordsMode]);
 
   useEffect(() => {
     const activeCaptions = activeFlow.captions;
@@ -699,6 +741,24 @@ export function DemoPage() {
     setBridgeStep("listen");
   };
 
+  const backToShowStep = () => {
+    setVisibleCaptions([]);
+    setAgentResult(undefined);
+    setAgentProvider("fallback");
+    setAsrStatus("idle");
+    setIsCapturing(false);
+    setBridgeStep("show");
+  };
+
+  const backToReplyInput = () => {
+    setVisibleCaptions([]);
+    setAgentResult(undefined);
+    setAgentProvider("fallback");
+    setAsrStatus("idle");
+    setIsCapturing(false);
+    setBridgeStep("listen");
+  };
+
   const processReply = () => {
     setVisibleCaptions([]);
     setAgentResult(undefined);
@@ -791,6 +851,7 @@ export function DemoPage() {
     setRecords(nextRecords);
     persistRecords(nextRecords);
     setSelectedRecordId(savedRecord.id);
+    setRecordsMode("detail");
     setJustSavedRecordId(savedRecord.id);
     setIsCapturing(false);
     setVisibleCaptions([]);
@@ -814,6 +875,7 @@ export function DemoPage() {
 
   const handleOpenRecord = (id: string) => {
     setSelectedRecordId(id);
+    setRecordsMode("detail");
     setActiveTab("records");
   };
 
@@ -821,6 +883,19 @@ export function DemoPage() {
     setActivePhraseId(undefined);
     setJustSavedRecordId(undefined);
     openBridge(record.actionPhrase, record.title, record.flowId);
+  };
+
+  const handleSelectRecord = (id: string) => {
+    setSelectedRecordId(id);
+    setRecordsMode("detail");
+  };
+
+  const handleTabChange = (tab: AppTab) => {
+    if (tab === "records") {
+      setRecordsMode("list");
+    }
+
+    setActiveTab(tab);
   };
 
   const startFromHomeDraft = () => {
@@ -861,6 +936,8 @@ export function DemoPage() {
           onReplyDraftChange={setReplyDraft}
           onUseDemoReply={useDemoReply}
           onProcessReply={processReply}
+          onBackToShow={backToShowStep}
+          onBackToReply={backToReplyInput}
           onStartListening={openReplyComposer}
           onSave={saveCurrentRecord}
           onConfirmQuestion={handleConfirmQuestion}
@@ -874,9 +951,12 @@ export function DemoPage() {
         <RecordsView
           records={records}
           selectedRecordId={selectedRecordId}
+          mode={recordsMode}
           justSavedRecordId={justSavedRecordId}
-          onSelectRecord={setSelectedRecordId}
+          onSelectRecord={handleSelectRecord}
+          onBackToList={() => setRecordsMode("list")}
           onContinue={handleContinueRecord}
+          onOpenHome={() => setActiveTab("home")}
         />
       );
     }
@@ -889,7 +969,7 @@ export function DemoPage() {
       <div className="sb-device-frame">
         <AppTopBar activeTab={activeTab} onGoHome={() => setActiveTab("home")} />
         <section className="sb-app-content" ref={contentRef}>{renderActiveView()}</section>
-        <BottomNav activeTab={activeTab} onChange={setActiveTab} />
+        <BottomNav activeTab={activeTab} onChange={handleTabChange} />
       </div>
     </main>
   );
