@@ -4,7 +4,7 @@
 SilentBridge 无声桥
 
 ## 当前阶段
-Phase 04 - Mobile App Entry Architecture
+Phase 10 - AI Understanding Loop
 
 ## Session ID 管理
 所有 Trae session ID 统一维护在 `session-registry.md`。本文件只记录阶段过程、验收和证据截图。
@@ -259,7 +259,6 @@ Phase 04 - LLM 集成和真实语音识别
 
 ### 截图清单
 - `docs/evidence/assets/10-phase04-app-home-390.png` - Phase 04 移动 App 首页骨架
-- `docs/evidence/assets/11-phase04-bridge-workspace-390.png` - Phase 04 开桥工作台预览
 
 ### 下一阶段计划
 Phase 05 - 真实语音识别、转写和 AI 摘要链路
@@ -294,3 +293,34 @@ Phase 05 - 真实语音识别、转写和 AI 摘要链路
   - assets/15-trae-phase09-plan-execution.png
   - assets/16-trae-phase09-completion-summary.png
   - assets/17-phase09-service-flow-390.png
+
+---
+
+## Phase 10 - AI Understanding Loop
+
+- Time: 2026-06-19
+- Session Registry Reference: See `session-registry.md` row: `Phase 10 - AI Understanding Loop`.
+- Goal: Add frontend-only ASR simulation and Agent understanding loop to show confirmed facts, missing information, risks, and follow-up confirmation.
+- Changes:
+  - Added LangGraph-style Agent graph config in agent-graph.ts.
+  - Added frontend ASR simulator state in asr-simulator.ts.
+  - Added AiUnderstanding type to demo-content.ts with confirmed, missing, risks, suggestedQuestion, and plainSummary fields.
+  - Extended DemoFlow and RecordItem with aiUnderstanding.
+  - Added 小桥理解 card after transcript completion with confirmed/missing/risks/summary.
+  - Added one-tap confirmation question loop that returns to bridge with suggestedQuestion.
+  - Added AI understanding details to saved records.
+  - Added ASR status panel with idle/listening/transcribing/done states.
+  - Added Phase 10 CSS styles for ASR panel, agent card, risk list, and record AI block.
+  - Reset app content scroll position when switching tabs or bridge steps so saved record details open from the top.
+- Verification:
+  - pnpm --filter @silentbridge/web typecheck: passed
+  - pnpm build: passed
+  - 390px browser check: home -> ASR listening -> Agent insight -> confirmation question -> saved record AI detail passed
+  - 390px width check: body/html scrollWidth = 390 passed
+  - 360px width check: body/html scrollWidth = 360 passed
+  - Saved record page opens with title visible after saving from a scrolled bridge page: passed
+  - No API key is used in frontend: passed
+  - Console warning/error count: 0
+- Evidence:
+  - assets/18-trae-phase10-plan-execution.png
+  - assets/19-trae-phase10-completion-summary.png

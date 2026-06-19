@@ -28,6 +28,7 @@ export interface RecordItem {
   nextStep: string;
   keyPoints: string[];
   actionPhrase: string;
+  aiUnderstanding: AiUnderstanding;
 }
 
 export interface Phrase {
@@ -43,12 +44,28 @@ export interface PhrasePack {
   phrases: Phrase[];
 }
 
+export type RiskLevel = "low" | "medium" | "high";
+
+export interface RiskItem {
+  level: RiskLevel;
+  text: string;
+}
+
+export interface AiUnderstanding {
+  confirmed: string[];
+  missing: string[];
+  risks: RiskItem[];
+  suggestedQuestion: string;
+  plainSummary: string;
+}
+
 type SavedRecordTemplate = Omit<RecordItem, "id" | "time">;
 
 export interface DemoFlow {
   id: DemoFlowId;
   captions: CaptionLine[];
   summaryHighlight: string;
+  aiUnderstanding: AiUnderstanding;
   savedRecord: SavedRecordTemplate;
 }
 
@@ -80,6 +97,47 @@ export const quickScenarios: QuickScenario[] = [
   }
 ];
 
+const pharmacyUnderstanding: AiUnderstanding = {
+  confirmed: ["饭后服用", "一天两次", "避免饮酒同服"],
+  missing: ["药名还没有写下来", "是否正在服用其他药还没确认"],
+  risks: [
+    { level: "high", text: "药物和酒同服可能带来风险，需要明确提醒。" },
+    { level: "medium", text: "如果还在服用其他药，最好先咨询医生。" }
+  ],
+  suggestedQuestion: "请把药名、用量和不能一起吃的东西写下来，我要保存。",
+  plainSummary: "这次沟通已经确认用药时间和禁忌，但还需要补齐药名和用量。"
+};
+
+const serviceUnderstanding: AiUnderstanding = {
+  confirmed: ["需要身份证原件", "需要近期照片", "先取综合业务号", "到 3 号窗口办理"],
+  missing: ["是否需要复印件数量还没确认", "窗口办理截止时间还没确认"],
+  risks: [
+    { level: "medium", text: "材料少一项可能需要重新排队。" }
+  ],
+  suggestedQuestion: "请再写一下还缺哪些材料，以及今天最晚几点能办。",
+  plainSummary: "这次沟通已经确认办事材料和窗口，但还需要确认材料数量和办理截止时间。"
+};
+
+const trafficUnderstanding: AiUnderstanding = {
+  confirmed: ["右手边楼梯下去", "坐 2 号线", "人民广场换乘 1 号线", "往市中心方向"],
+  missing: ["哪一个出口进站还没确认", "换乘后坐几站还没确认"],
+  risks: [
+    { level: "medium", text: "走到对面站台会坐反方向。" }
+  ],
+  suggestedQuestion: "请再写一下我从哪个出口进站，换乘后坐几站。",
+  plainSummary: "这次沟通已经确认路线方向，但还需要确认入口和换乘后的站数。"
+};
+
+const genericUnderstanding: AiUnderstanding = {
+  confirmed: ["对方愿意用文字配合", "需要再次确认时间、地点和下一步"],
+  missing: ["具体地点还没写清楚", "下一步责任人还没确认"],
+  risks: [
+    { level: "low", text: "信息不完整时，后续容易忘记或误解。" }
+  ],
+  suggestedQuestion: "请把时间、地点、下一步和联系人写完整。",
+  plainSummary: "这次沟通已经建立文字配合方式，但还需要补齐关键信息。"
+};
+
 export const demoFlows: Record<DemoFlowId, DemoFlow> = {
   pharmacy: {
     id: "pharmacy",
@@ -106,6 +164,7 @@ export const demoFlows: Record<DemoFlowId, DemoFlow> = {
       }
     ],
     summaryHighlight: "饭后吃，一天两次，不要和酒一起服用。",
+    aiUnderstanding: pharmacyUnderstanding,
     savedRecord: {
       flowId: "pharmacy",
       title: "刚刚的药店沟通",
@@ -113,7 +172,8 @@ export const demoFlows: Record<DemoFlowId, DemoFlow> = {
       summary: "已确认饭后服用、一天两次，避免饮酒同服。",
       nextStep: "如果服用后明显不适，先停用并咨询医生。",
       keyPoints: ["饭后服用", "早晚各一次", "避免饮酒", "不适时咨询医生"],
-      actionPhrase: "请把药名和用量再写一遍，我要保存。"
+      actionPhrase: "请把药名和用量再写一遍，我要保存。",
+      aiUnderstanding: pharmacyUnderstanding
     }
   },
   service: {
@@ -141,6 +201,7 @@ export const demoFlows: Record<DemoFlowId, DemoFlow> = {
       }
     ],
     summaryHighlight: "身份证原件、近期照片，先取号，再到 3 号窗口。",
+    aiUnderstanding: serviceUnderstanding,
     savedRecord: {
       flowId: "service",
       title: "刚刚的政务窗口沟通",
@@ -148,7 +209,8 @@ export const demoFlows: Record<DemoFlowId, DemoFlow> = {
       summary: "已确认身份证原件、近期照片，先取综合业务号，再到 3 号窗口办理。",
       nextStep: "明天上午带齐材料，先取号，再到窗口办理。",
       keyPoints: ["身份证原件", "近期照片", "综合业务号", "3 号窗口"],
-      actionPhrase: "请再帮我确认还缺哪一项材料。"
+      actionPhrase: "请再帮我确认还缺哪一项材料。",
+      aiUnderstanding: serviceUnderstanding
     }
   },
   traffic: {
@@ -176,6 +238,7 @@ export const demoFlows: Record<DemoFlowId, DemoFlow> = {
       }
     ],
     summaryHighlight: "从右手边进地铁，2 号线到人民广场后换乘 1 号线。",
+    aiUnderstanding: trafficUnderstanding,
     savedRecord: {
       flowId: "traffic",
       title: "刚刚的问路沟通",
@@ -183,7 +246,8 @@ export const demoFlows: Record<DemoFlowId, DemoFlow> = {
       summary: "已确认从右手边楼梯进地铁，坐 2 号线到人民广场后换乘 1 号线。",
       nextStep: "按市中心方向进站，不要去对面站台。",
       keyPoints: ["右手边楼梯", "2 号线", "人民广场换乘", "市中心方向"],
-      actionPhrase: "请再写一下我要在哪一站换乘。"
+      actionPhrase: "请再写一下我要在哪一站换乘。",
+      aiUnderstanding: trafficUnderstanding
     }
   },
   generic: {
@@ -211,6 +275,7 @@ export const demoFlows: Record<DemoFlowId, DemoFlow> = {
       }
     ],
     summaryHighlight: "对方愿意用文字确认时间、地点和下一步。",
+    aiUnderstanding: genericUnderstanding,
     savedRecord: {
       flowId: "generic",
       title: "刚刚的现场确认",
@@ -218,7 +283,8 @@ export const demoFlows: Record<DemoFlowId, DemoFlow> = {
       summary: "已确认对方愿意用文字配合，并再次写下时间、地点和下一步。",
       nextStep: "根据记录继续追问缺失信息，必要时请对方写下来。",
       keyPoints: ["文字配合", "确认时间", "确认地点", "确认下一步"],
-      actionPhrase: "请再帮我把最重要的一句话写下来。"
+      actionPhrase: "请再帮我把最重要的一句话写下来。",
+      aiUnderstanding: genericUnderstanding
     }
   }
 };
@@ -233,7 +299,8 @@ export const initialRecords: RecordItem[] = [
     summary: "已确认饭后服用、一天两次、不能与酒同服。",
     nextStep: "服用后如明显不适，先停用并咨询医生。",
     keyPoints: ["饭后服用", "早晚各一次", "避免饮酒", "不适时先停用"],
-    actionPhrase: "请再帮我写下药名、用量和注意事项。"
+    actionPhrase: "请再帮我写下药名、用量和注意事项。",
+    aiUnderstanding: pharmacyUnderstanding
   },
   {
     id: "record-service",
@@ -244,7 +311,8 @@ export const initialRecords: RecordItem[] = [
     summary: "需要身份证原件、近期照片，现场取号后到 3 号窗口办理。",
     nextStep: "明天上午带齐材料，先取号再排队。",
     keyPoints: ["身份证原件", "一寸照片", "3 号窗口", "上午办理"],
-    actionPhrase: "我想确认还缺哪一项材料，请写给我。"
+    actionPhrase: "我想确认还缺哪一项材料，请写给我。",
+    aiUnderstanding: serviceUnderstanding
   },
   {
     id: "record-traffic",
@@ -255,7 +323,8 @@ export const initialRecords: RecordItem[] = [
     summary: "已确认从右手边楼梯进地铁，坐 2 号线到人民广场后换乘。",
     nextStep: "进站后看市中心方向，不要走到对面站台。",
     keyPoints: ["右手边楼梯", "2 号线", "人民广场换乘", "市中心方向"],
-    actionPhrase: "请再写一下我要在哪一站换乘。"
+    actionPhrase: "请再写一下我要在哪一站换乘。",
+    aiUnderstanding: trafficUnderstanding
   }
 ];
 

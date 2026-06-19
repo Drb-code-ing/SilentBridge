@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   defaultFlowId,
   defaultMessage,
@@ -15,6 +15,8 @@ import {
   type QuickScenario,
   type RecordItem
 } from "./demo-content";
+import { asrStateLabels, type AsrStatus } from "./asr-simulator";
+import { runDemoAgent, type AgentRunResult } from "./agent-graph";
 
 function Mascot() {
   return (
@@ -139,6 +141,20 @@ function DisplayCard({ message }: { message: string }) {
   );
 }
 
+function AsrStatusPanel({ status }: { status: AsrStatus }) {
+  const label = asrStateLabels[status];
+
+  return (
+    <section className="sb-asr-panel">
+      <span className={`sb-asr-dot sb-asr-dot--${status}`} />
+      <div>
+        <strong>{label.title}</strong>
+        <p>{label.helper}</p>
+      </div>
+    </section>
+  );
+}
+
 function CaptionPanel({
   visibleCaptions,
   isCapturing
@@ -177,6 +193,68 @@ function CaptionPanel({
   );
 }
 
+function AgentInsightCard({
+  result,
+  onConfirmQuestion
+}: {
+  result?: AgentRunResult;
+  onConfirmQuestion: () => void;
+}) {
+  if (!result) {
+    return null;
+  }
+
+  const { understanding } = result;
+
+  return (
+    <section className="sb-agent-card">
+      <div className="sb-panel-head">
+        <span>小桥理解</span>
+        <strong>Agent: {result.graphName}</strong>
+      </div>
+
+      <div className="sb-agent-grid">
+        <div className="sb-agent-block">
+          <span>已确认</span>
+          <ul>
+            {understanding.confirmed.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="sb-agent-block">
+          <span>还没确认</span>
+          <ul>
+            {understanding.missing.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {understanding.risks.length > 0 && (
+        <div className="sb-risk-list">
+          <span>风险提醒</span>
+          <ul>
+            {understanding.risks.map((risk) => (
+              <li key={risk.text} className={`sb-risk-item sb-risk-item--${risk.level}`}>
+                {risk.text}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <p className="sb-agent-summary">{understanding.plainSummary}</p>
+
+      <button type="button" className="sb-secondary-button" onClick={onConfirmQuestion}>
+        请对方确认
+      </button>
+    </section>
+  );
+}
+
 function BridgeView({
   step,
   message,
@@ -185,8 +263,11 @@ function BridgeView({
   visibleCaptions,
   isCapturing,
   expectedCaptionCount,
+  asrStatus,
+  agentResult,
   onStartListening,
   onSave,
+  onConfirmQuestion,
   onOpenPhrases
 }: {
   step: BridgeStep;
@@ -196,8 +277,11 @@ function BridgeView({
   visibleCaptions: CaptionLine[];
   isCapturing: boolean;
   expectedCaptionCount: number;
+  asrStatus: AsrStatus;
+  agentResult?: AgentRunResult;
   onStartListening: () => void;
   onSave: () => void;
+  onConfirmQuestion: () => void;
   onOpenPhrases: () => void;
 }) {
   const captionsDone = visibleCaptions.length >= expectedCaptionCount && !isCapturing;
@@ -228,6 +312,7 @@ function BridgeView({
 
       {step === "listen" && (
         <section className="sb-bridge-stage">
+          <AsrStatusPanel status={asrStatus} />
           <CaptionPanel visibleCaptions={visibleCaptions} isCapturing={isCapturing} />
           {captionsDone && (
             <div className="sb-summary-card">
@@ -235,12 +320,15 @@ function BridgeView({
               <strong>{summaryHighlight}</strong>
             </div>
           )}
+          {captionsDone && (
+            <AgentInsightCard result={agentResult} onConfirmQuestion={onConfirmQuestion} />
+          )}
           <div className="sb-bridge-actions">
             <button
               type="button"
               className="sb-primary-button"
               onClick={onSave}
-              disabled={!captionsDone}
+              disabled={!captionsDone || !agentResult}
             >
               保存这次重点
             </button>
@@ -303,6 +391,17 @@ function RecordsView({
           {selectedRecord.keyPoints.map((point) => (
             <span key={point}>{point}</span>
           ))}
+        </div>
+        <div className="sb-record-ai">
+          <span>小桥理解</span>
+          <strong>{selectedRecord.aiUnderstanding.plainSummary}</strong>
+          <ul>
+            {selectedRecord.aiUnderstanding.risks.map((risk) => (
+              <li key={risk.text} className={`sb-risk-item sb-risk-item--${risk.level}`}>
+                {risk.text}
+              </li>
+            ))}
+          </ul>
         </div>
         <div className="sb-next-step">
           <span>下一步</span>
@@ -384,6 +483,7 @@ function BottomNav({
 }
 
 export function DemoPage() {
+  const contentRef = useRef<HTMLElement>(null);
   const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [bridgeStep, setBridgeStep] = useState<BridgeStep>("show");
   const [displayMessage, setDisplayMessage] = useState(defaultMessage);
@@ -395,9 +495,15 @@ export function DemoPage() {
   const [selectedRecordId, setSelectedRecordId] = useState(initialRecords[0].id);
   const [activePhraseId, setActivePhraseId] = useState<string>();
   const [justSavedRecordId, setJustSavedRecordId] = useState<string>();
+  const [asrStatus, setAsrStatus] = useState<AsrStatus>("idle");
+  const [agentResult, setAgentResult] = useState<AgentRunResult>();
 
   const activeFlow = demoFlows[activeFlowId];
   const latestRecord = useMemo(() => records[0], [records]);
+
+  useEffect(() => {
+    contentRef.current?.scrollTo({ top: 0, behavior: "auto" });
+  }, [activeTab, bridgeStep, displayMessage]);
 
   useEffect(() => {
     const activeCaptions = activeFlow.captions;
@@ -407,8 +513,15 @@ export function DemoPage() {
     }
 
     if (visibleCaptions.length >= activeCaptions.length) {
-      setIsCapturing(false);
-      return;
+      setAsrStatus("transcribing");
+
+      const timer = window.setTimeout(() => {
+        setIsCapturing(false);
+        setAsrStatus("done");
+        setAgentResult(runDemoAgent({ flow: activeFlow, transcript: activeCaptions }));
+      }, 520);
+
+      return () => window.clearTimeout(timer);
     }
 
     const timer = window.setTimeout(() => {
@@ -416,7 +529,7 @@ export function DemoPage() {
     }, 720);
 
     return () => window.clearTimeout(timer);
-  }, [activeFlow.captions, isCapturing, visibleCaptions.length]);
+  }, [activeFlow, isCapturing, visibleCaptions.length]);
 
   useEffect(() => {
     if (!justSavedRecordId) {
@@ -440,21 +553,39 @@ export function DemoPage() {
     setActiveFlowId(flowId);
     setVisibleCaptions([]);
     setIsCapturing(false);
+    setAsrStatus("idle");
+    setAgentResult(undefined);
     setBridgeStep("show");
     setActiveTab("bridge");
   };
 
   const startListening = () => {
     setVisibleCaptions([]);
+    setAgentResult(undefined);
+    setAsrStatus("listening");
     setBridgeStep("listen");
     setIsCapturing(true);
   };
 
+  const handleConfirmQuestion = () => {
+    if (!agentResult) {
+      return;
+    }
+
+    openBridge(
+      agentResult.understanding.suggestedQuestion,
+      `${bridgeSourceLabel} · 追问确认`,
+      activeFlowId
+    );
+  };
+
   const saveCurrentRecord = () => {
+    const understanding = agentResult?.understanding ?? activeFlow.aiUnderstanding;
     const savedRecord: RecordItem = {
       ...activeFlow.savedRecord,
+      aiUnderstanding: understanding,
       id: `record-${activeFlowId}-${Date.now()}`,
-      time: "刚刚",
+      time: "刚刚"
     };
 
     setRecords((currentRecords) => [savedRecord, ...currentRecords]);
@@ -462,6 +593,8 @@ export function DemoPage() {
     setJustSavedRecordId(savedRecord.id);
     setIsCapturing(false);
     setVisibleCaptions([]);
+    setAsrStatus("idle");
+    setAgentResult(undefined);
     setBridgeStep("show");
     setActiveTab("records");
   };
@@ -512,8 +645,11 @@ export function DemoPage() {
           visibleCaptions={visibleCaptions}
           isCapturing={isCapturing}
           expectedCaptionCount={activeFlow.captions.length}
+          asrStatus={asrStatus}
+          agentResult={agentResult}
           onStartListening={startListening}
           onSave={saveCurrentRecord}
+          onConfirmQuestion={handleConfirmQuestion}
           onOpenPhrases={() => setActiveTab("phrases")}
         />
       );
@@ -538,7 +674,7 @@ export function DemoPage() {
     <main className="sb-app-shell">
       <div className="sb-device-frame">
         <AppTopBar activeTab={activeTab} onGoHome={() => setActiveTab("home")} />
-        <section className="sb-app-content">{renderActiveView()}</section>
+        <section className="sb-app-content" ref={contentRef}>{renderActiveView()}</section>
         <BottomNav activeTab={activeTab} onChange={setActiveTab} />
       </div>
     </main>
