@@ -192,6 +192,12 @@ button:focus-visible {
   min-height: 0;
   overflow-y: auto;
   padding: 1rem 0.95rem 2.3rem;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.sb-app-content::-webkit-scrollbar {
+  display: none;
 }
 
 .sb-view {
