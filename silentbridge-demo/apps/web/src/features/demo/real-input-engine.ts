@@ -24,7 +24,7 @@ export function inferFlowIdFromText(text: string): DemoFlowId {
     return "service";
   }
 
-  if (/地铁|路|方向|站台|换乘|出口|几站/.test(value)) {
+  if (/地铁|路口|马路|哪条路|路怎么走|方向|站台|换乘|出口|几站|问路|指路|迷路/.test(value)) {
     return "traffic";
   }
 
@@ -57,6 +57,33 @@ export function createManualTranscript(input: {
   ];
 }
 
+export function createBrowserSpeechTranscript(input: {
+  text: string;
+  speaker?: string;
+  now?: Date;
+  confidence?: number;
+}): TranscriptSegmentPayload[] {
+  const text = normalizeUserText(input.text, "", MAX_REPLY_LENGTH);
+  if (!text) {
+    return [];
+  }
+
+  const time = input.now
+    ? `${String(input.now.getHours()).padStart(2, "0")}:${String(input.now.getMinutes()).padStart(2, "0")}`
+    : "刚刚";
+
+  return [
+    {
+      id: `browser-speech-${Date.now()}`,
+      speaker: input.speaker ?? "对方",
+      time,
+      text,
+      important: true,
+      confidence: input.confidence ?? 0.86
+    }
+  ];
+}
+
 export function createUnderstandingFromTranscript(input: {
   flow: DemoFlow;
   transcript: TranscriptSegmentPayload[] | CaptionLine[];
@@ -69,7 +96,7 @@ export function createUnderstandingFromTranscript(input: {
   }
 
   const firstFact = joinedText.length > 46 ? `${joinedText.slice(0, 46)}...` : joinedText;
-  const hasTime = /今天|明天|后天|上午|下午|晚上|点|分钟|小时|周|月|\d/.test(joinedText);
+  const hasTime = /今天|明天|后天|上午|下午|晚上|点|分钟|小时|周|月|\d+\s*(点|分|时|号|天|周|月|分钟|小时)/.test(joinedText);
   const hasRiskWord = /必须|不能|过敏|费用|截止|迟到|材料|签字|确认|复查|面试|缴费/.test(joinedText);
 
   return {

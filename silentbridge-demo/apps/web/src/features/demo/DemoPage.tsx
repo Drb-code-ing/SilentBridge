@@ -28,7 +28,7 @@ import {
   persistRecords
 } from "./session-store";
 import type { CommunicationSession } from "./session-types";
-import { inferFlowIdFromText, normalizeUserText } from "./real-input-engine";
+import { inferFlowIdFromText, normalizeUserText, createBrowserSpeechTranscript } from "./real-input-engine";
 import {
   clearBridgeProgressDraft,
   loadBridgeProgressDraft,
@@ -37,8 +37,14 @@ import {
 import { requestMicrophoneAccess, type AudioCaptureState } from "./audio-capture-client";
 import { getAgentRuntimeStatus, type AgentRuntimeStatus } from "./agent-runtime-config";
 import { pickNextRecordId, removeRecord, resetRecords } from "./record-actions";
+import {
+  createBrowserSpeechCapture,
+  detectBrowserSpeechRecognition,
+  type BrowserSpeechCaptureController
+} from "./browser-speech-client";
 
 type RecordsMode = "list" | "detail";
+type CaptureMode = "idle" | "fallback-demo" | "browser-speech";
 
 function Mascot() {
   return (
@@ -351,17 +357,49 @@ function BridgeView({
     !isCapturing &&
     visibleCaptions.length > 0 &&
     (Boolean(agentResult) || visibleCaptions.length >= expectedCaptionCount);
-  const listenTitle = captionsDone
-    ? "已经整理成文字"
-    : isCapturing
-      ? "正在收听对方说话"
-      : "准备收听";
-  const listenHelper = captionsDone
-    ? "字幕和重点已经生成，可以保存或继续追问。"
-    : isCapturing
-      ? "请把手机靠近对方，文字会逐条出现。"
-      : "点击后开始收听；如果浏览器不支持，会自动切到演示转写流。";
-  const primaryListenLabel = captionsDone ? "保存这次重点" : isCapturing ? "正在收听..." : "开始收听";
+
+  const listenCopy: Record<AsrStatus, { title: string; helper: string; primary: string }> = {
+    idle: {
+      title: "准备收听",
+      helper: "点击后开始收听；如果浏览器不支持，会自动切到演示转写流。",
+      primary: "开始收听"
+    },
+    requesting: {
+      title: "正在请求麦克风",
+      helper: "允许麦克风后，就可以把对方的话转成文字。",
+      primary: "请求中..."
+    },
+    listening: {
+      title: "正在收听对方说话",
+      helper: "请把手机靠近对方，识别文字会出现在下方。",
+      primary: "正在收听..."
+    },
+    transcribing: {
+      title: "正在整理文字",
+      helper: "小桥正在把识别到的话整理成重点。",
+      primary: "整理中..."
+    },
+    done: {
+      title: "已经整理成文字",
+      helper: "字幕和重点已经生成，可以保存或继续追问。",
+      primary: "保存这次重点"
+    },
+    fallback: {
+      title: "已切到演示转写",
+      helper: "当前环境无法稳定识别语音，先用演示字幕跑通流程。",
+      primary: "演示转写中..."
+    },
+    error: {
+      title: "没有识别到清晰语音",
+      helper: "可以重试、让对方打字，或填入演示回复。",
+      primary: "重新收听"
+    }
+  };
+
+  const activeListenCopy = captionsDone ? listenCopy.done : listenCopy[asrStatus];
+  const listenTitle = activeListenCopy.title;
+  const listenHelper = activeListenCopy.helper;
+  const primaryListenLabel = captionsDone ? listenCopy.done.primary : activeListenCopy.primary;
   const primaryListenAction = captionsDone ? onSave : onUseMicrophone;
 
   return (
@@ -417,7 +455,12 @@ function BridgeView({
               type="button"
               className="sb-primary-button"
               onClick={primaryListenAction}
-              disabled={isCapturing || (captionsDone && !agentResult)}
+              disabled={
+                asrStatus === "requesting" ||
+                asrStatus === "transcribing" ||
+                isCapturing ||
+                (captionsDone && !agentResult)
+              }
             >
               {primaryListenLabel}
             </button>
@@ -709,6 +752,8 @@ export function DemoPage() {
     permissionState: "unknown"
   });
   const [flowNotice, setFlowNotice] = useState<string>();
+  const [captureMode, setCaptureMode] = useState<CaptureMode>("idle");
+  const speechCaptureRef = useRef<BrowserSpeechCaptureController>();
 
   const activeFlow = demoFlows[activeFlowId];
   const latestRecord = useMemo(() => records[0], [records]);
@@ -722,9 +767,15 @@ export function DemoPage() {
   }, [activeTab, bridgeStep, displayMessage, recordsMode]);
 
   useEffect(() => {
+    return () => {
+      speechCaptureRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
     const activeCaptions = activeFlow.captions;
 
-    if (!isCapturing) {
+    if (!isCapturing || captureMode !== "fallback-demo") {
       return;
     }
 
@@ -815,7 +866,7 @@ export function DemoPage() {
     }, 720);
 
     return () => window.clearTimeout(timer);
-  }, [activeFlow, activeFlowId, activeSession, displayMessage, isCapturing, visibleCaptions.length]);
+  }, [activeFlow, activeFlowId, activeSession, displayMessage, isCapturing, captureMode, visibleCaptions.length]);
 
   useEffect(() => {
     if (!justSavedRecordId) {
@@ -863,7 +914,14 @@ export function DemoPage() {
     processedReplyDraft
   ]);
 
+  const stopSpeechCapture = () => {
+    speechCaptureRef.current?.abort();
+    speechCaptureRef.current = undefined;
+  };
+
   const resetReplyProgress = () => {
+    stopSpeechCapture();
+    setCaptureMode("idle");
     replyRunIdRef.current += 1;
     setVisibleCaptions([]);
     setIsCapturing(false);
@@ -896,12 +954,18 @@ export function DemoPage() {
   };
 
   const backToShowStep = () => {
+    stopSpeechCapture();
+    setCaptureMode("idle");
     setIsCapturing(false);
-    setAsrStatus((currentStatus) => (currentStatus === "listening" ? "idle" : currentStatus));
+    setAsrStatus((currentStatus) =>
+      currentStatus === "done" || currentStatus === "error" ? currentStatus : "idle"
+    );
     setBridgeStep("show");
   };
 
   const backToReplyInput = () => {
+    stopSpeechCapture();
+    setCaptureMode("idle");
     setIsCapturing(false);
     setBridgeStep("listen");
   };
@@ -918,15 +982,14 @@ export function DemoPage() {
     return runId;
   };
 
-  const startCaptionCapture = (notice?: string) => {
+  const startFallbackCaptionCapture = (notice?: string) => {
     beginReplyRun();
+    stopSpeechCapture();
+    setCaptureMode("fallback-demo");
     setIsCapturing(true);
-    setAsrStatus("listening");
+    setAsrStatus("fallback");
     setBridgeStep("listen");
-
-    if (notice) {
-      setFlowNotice(notice);
-    }
+    setFlowNotice(notice);
   };
 
   const processReply = () => {
@@ -945,7 +1008,7 @@ export function DemoPage() {
     }
 
     if (!normalizedReply) {
-      startCaptionCapture();
+      startFallbackCaptionCapture();
       return;
     }
 
@@ -1015,8 +1078,167 @@ export function DemoPage() {
         return;
       }
 
-      setAsrStatus("done");
+      setAsrStatus("error");
+      setFlowNotice("整理失败，可以修改回复后重新整理，或直接开始收听。");
     }
+  };
+
+  const runBrowserSpeechPipeline = async (recognizedText: string, runId: number) => {
+    if (replyRunIdRef.current !== runId) {
+      return;
+    }
+
+    const transcript = createBrowserSpeechTranscript({ text: recognizedText });
+
+    if (transcript.length === 0) {
+      setIsCapturing(false);
+      setCaptureMode("idle");
+      setAsrStatus("error");
+      setFlowNotice("没有识别到清晰语音，可以重试、让对方打字，或切换演示转写。");
+      return;
+    }
+
+    setIsCapturing(false);
+    setCaptureMode("idle");
+    setAsrStatus("transcribing");
+    setVisibleCaptions(transcript);
+    setReplyDraft(recognizedText);
+
+    try {
+      const response = await runSessionAgent({
+        request: {
+          sessionId: activeSession.id,
+          flowId: activeFlowId,
+          transcript,
+          userMessage: displayMessage,
+          round: activeSession.rounds.length + 1
+        },
+        fallbackFlow: activeFlow
+      });
+
+      if (replyRunIdRef.current !== runId) {
+        return;
+      }
+
+      const result: AgentRunResult = {
+        graphName: response.graphName,
+        visitedNodes: response.visitedNodes as AgentRunResult["visitedNodes"],
+        understanding: response.understanding
+      };
+
+      setAgentResult(result);
+      setAgentProvider(response.provider);
+      setAsrStatus("done");
+      setProcessedReplyDraft(recognizedText);
+      setActiveSession((prevSession) =>
+        appendSessionRound({
+          session: prevSession,
+          prompt: displayMessage,
+          transcript,
+          agentResult: result,
+          provider: "browser"
+        })
+      );
+    } catch {
+      if (replyRunIdRef.current !== runId) {
+        return;
+      }
+
+      setAsrStatus("error");
+      setFlowNotice("语音已经转成文字，但重点整理失败。可以点整理回复或重新收听。");
+    }
+  };
+
+  const startBrowserSpeechCapture = (runId: number) => {
+    const support = detectBrowserSpeechRecognition();
+    if (!support.supported) {
+      startFallbackCaptionCapture("当前浏览器不支持实时语音识别，已切到演示转写流。");
+      return;
+    }
+
+    const controller = createBrowserSpeechCapture({
+      onStart: () => {
+        if (replyRunIdRef.current !== runId) {
+          return;
+        }
+
+        setAsrStatus("listening");
+        setIsCapturing(true);
+        setCaptureMode("browser-speech");
+        setFlowNotice("正在收听。请让对方正常说话，识别文字会出现在下方。");
+      },
+      onPartialText: (text) => {
+        if (replyRunIdRef.current !== runId) {
+          return;
+        }
+
+        setVisibleCaptions((prev) => {
+          const finals = prev.filter((c) => !c.id.startsWith("browser-speech-partial-"));
+          return [
+            ...finals,
+            {
+              id: `browser-speech-partial-${runId}`,
+              speaker: "对方",
+              text,
+              time: "正在说",
+              important: false
+            }
+          ];
+        });
+      },
+      onFinalText: (text) => {
+        if (replyRunIdRef.current !== runId || !text.trim()) {
+          return;
+        }
+
+        setVisibleCaptions((prev) => {
+          const withoutPartial = prev.filter((c) => !c.id.startsWith("browser-speech-partial-"));
+          return [
+            ...withoutPartial,
+            {
+              id: `browser-speech-final-${runId}-${withoutPartial.length}`,
+              speaker: "对方",
+              text,
+              time: "刚刚",
+              important: true
+            }
+          ];
+        });
+      },
+      onComplete: (text) => {
+        if (replyRunIdRef.current !== runId) {
+          return;
+        }
+
+        speechCaptureRef.current = undefined;
+
+        if (!text.trim()) {
+          setIsCapturing(false);
+          setCaptureMode("idle");
+          setAsrStatus("error");
+          setFlowNotice("没有识别到清晰语音，可以重试、让对方打字，或切换演示转写。");
+          return;
+        }
+
+        void runBrowserSpeechPipeline(text, runId);
+      },
+      onError: () => {
+        if (replyRunIdRef.current !== runId) {
+          return;
+        }
+
+        speechCaptureRef.current = undefined;
+        startFallbackCaptionCapture("实时语音识别不稳定，已切到演示转写流，保证初赛现场能跑通。");
+      }
+    });
+
+    if (!controller) {
+      startFallbackCaptionCapture("当前浏览器不支持实时语音识别，已切到演示转写流。");
+      return;
+    }
+
+    speechCaptureRef.current = controller;
+    controller.start();
   };
 
   const handleReplyDraftChange = (value: string) => {
@@ -1119,18 +1341,34 @@ export function DemoPage() {
 
   const handleUseMicrophone = async () => {
     setFlowNotice(undefined);
+    stopSpeechCapture();
+    const runId = beginReplyRun();
+    setAsrStatus("requesting");
+    setCaptureMode("browser-speech");
+
     const nextAudioState = await requestMicrophoneAccess();
     setAudioCaptureState(nextAudioState);
 
-    if (!nextAudioState.support.supported || nextAudioState.permissionState !== "granted") {
-      startCaptionCapture("当前浏览器无法直接调用麦克风，已切到演示转写流，保证初赛现场能跑通。");
+    if (replyRunIdRef.current !== runId) {
       return;
     }
 
-    startCaptionCapture("正在收听。语音会转成文字，初赛 Demo 会同步给出稳定字幕。");
+    const canTryBrowserSpeech =
+      nextAudioState.support.supported &&
+      nextAudioState.support.mode === "speech-recognition" &&
+      (nextAudioState.permissionState === "granted" || nextAudioState.permissionState === "prompt");
+
+    if (!canTryBrowserSpeech) {
+      startFallbackCaptionCapture("当前环境无法直接使用实时语音识别，已切到演示转写流，保证初赛现场能跑通。");
+      return;
+    }
+
+    startBrowserSpeechCapture(runId);
   };
 
   const cancelCurrentRound = () => {
+    stopSpeechCapture();
+    setCaptureMode("idle");
     setFlowNotice("已取消本轮接收，可以回到上一步或重新输入。");
     resetReplyProgress();
     setReplyDraft("");
@@ -1138,6 +1376,8 @@ export function DemoPage() {
   };
 
   const startNewCommunication = () => {
+    stopSpeechCapture();
+    setCaptureMode("idle");
     setFlowNotice(undefined);
     setHomeMessageDraft(defaultMessage);
     openBridge(defaultMessage, "默认开场白", defaultFlowId);

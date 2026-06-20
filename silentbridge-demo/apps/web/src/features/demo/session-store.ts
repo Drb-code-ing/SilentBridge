@@ -72,6 +72,30 @@ export function appendSessionRound(input: {
   };
 }
 
+function isValidRecord(value: unknown): value is RecordItem {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as RecordItem;
+  return (
+    typeof record.id === "string" &&
+    typeof record.flowId === "string" &&
+    typeof record.title === "string" &&
+    typeof record.summary === "string" &&
+    typeof record.time === "string" &&
+    typeof record.place === "string" &&
+    Array.isArray(record.keyPoints) &&
+    typeof record.nextStep === "string" &&
+    typeof record.actionPhrase === "string" &&
+    Boolean(record.aiUnderstanding) &&
+    Array.isArray(record.aiUnderstanding.confirmed) &&
+    Array.isArray(record.aiUnderstanding.missing) &&
+    Array.isArray(record.aiUnderstanding.risks) &&
+    typeof record.aiUnderstanding.suggestedQuestion === "string"
+  );
+}
+
 export function loadStoredRecords(fallback: RecordItem[]): RecordItem[] {
   try {
     const raw = window.localStorage.getItem(RECORD_STORAGE_KEY);
@@ -79,8 +103,13 @@ export function loadStoredRecords(fallback: RecordItem[]): RecordItem[] {
       return fallback;
     }
 
-    const parsed = JSON.parse(raw) as RecordItem[];
-    return Array.isArray(parsed) ? parsed : fallback;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return fallback;
+    }
+
+    const valid = parsed.filter(isValidRecord);
+    return valid.length > 0 ? valid : fallback;
   } catch {
     return fallback;
   }
@@ -109,13 +138,13 @@ export function createRecordFromSession(input: {
     : input.flow.savedRecord.summary;
 
   const isContinuation = Boolean(input.session.continuation);
-  const recordTitle = isContinuation
-    ? `${input.session.continuation?.parentTitle ?? input.session.sourceLabel} · 追问`
-    : input.session.sourceLabel;
+  const rawParentTitle = input.session.continuation?.parentTitle ?? input.session.sourceLabel;
+  const baseParentTitle = rawParentTitle.replace(/\s*[··]\s*(继续追问|追问)\s*$/, "");
+  const recordTitle = isContinuation ? `${baseParentTitle} · 追问` : input.session.sourceLabel;
 
   return {
     ...input.flow.savedRecord,
-    id: `record-${input.session.id}`,
+    id: `record-${input.session.id}-r${input.session.rounds.length}`,
     time: "刚刚",
     title: recordTitle,
     summary: shortSummary,
