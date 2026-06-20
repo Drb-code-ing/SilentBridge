@@ -4,7 +4,7 @@
 SilentBridge 无声桥
 
 ## 当前阶段
-Phase 13 - Core Function Completion
+Phase 15 - Browser ASR Pilot
 
 ## Session ID 管理
 所有 Trae session ID 统一维护在 `session-registry.md`。本文件只记录阶段过程、验收和证据截图。
@@ -400,3 +400,32 @@ Phase 05 - 真实语音识别、转写和 AI 摘要链路
 - Evidence:
   - assets/24-trae-phase13-core-function-plan.png
   - assets/25-trae-phase13-completion-review.png
+
+---
+
+## Phase 15 - Browser ASR Pilot
+
+- Time: 2026-06-20
+- Session Registry Reference: See `session-registry.md` row: `Phase 15 - Browser ASR Pilot`.
+- Goal: Add a browser-side ASR pilot so the listening step attempts real speech recognition first, then falls back safely when recognition is unavailable, silent, or unstable.
+- Changes:
+  - Added browser Web Speech API adapter with start/result/error/end lifecycle handling.
+  - Added ASR states for requesting, fallback, and error feedback.
+  - Split browser speech capture from fallback demo caption animation.
+  - Added microphone readiness handling for SpeechRecognition-first browsers.
+  - Added browser transcript provider and browser speech transcript builder.
+  - Preserved manual input, fallback demo captions, Agent understanding, saved record, and continue-follow-up flows.
+  - Added silent-listening timeout so a granted microphone does not leave the app stuck in "正在收听".
+- Verification:
+  - pnpm typecheck: passed
+  - pnpm build: passed
+  - Browser ASR success path with simulated SpeechRecognition result: passed
+  - Granted microphone with no recognized speech falls back to demo captions: passed
+  - Manual reply input regression: passed
+  - Listening cancel/recovery regression: passed
+  - 360px mobile overflow check: passed
+  - Console warning/error check: passed
+- Evidence:
+  - assets/26-trae-phase15-asr-plan-execution.png
+  - assets/27-trae-phase15-asr-code-change.png
+  - assets/28-trae-phase15-asr-review-summary.png
