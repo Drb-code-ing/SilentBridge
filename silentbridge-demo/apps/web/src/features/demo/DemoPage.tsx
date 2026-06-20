@@ -312,7 +312,6 @@ function BridgeView({
   onUseDemoReply,
   onUseMicrophone,
   onProcessReply,
-  onRetryReply,
   onCancelRound,
   onStartNew,
   onBackToShow,
@@ -339,7 +338,6 @@ function BridgeView({
   onUseDemoReply: () => void;
   onUseMicrophone: () => void;
   onProcessReply: () => void;
-  onRetryReply: () => void;
   onCancelRound: () => void;
   onStartNew: () => void;
   onBackToShow: () => void;
@@ -363,6 +361,8 @@ function BridgeView({
     : isCapturing
       ? "请把手机靠近对方，文字会逐条出现。"
       : "点击后开始收听；如果浏览器不支持，会自动切到演示转写流。";
+  const primaryListenLabel = captionsDone ? "保存这次重点" : isCapturing ? "正在收听..." : "开始收听";
+  const primaryListenAction = captionsDone ? onSave : onUseMicrophone;
 
   return (
     <div className="sb-view">
@@ -384,14 +384,18 @@ function BridgeView({
           <DisplayCard message={message} />
           <div className="sb-bridge-actions sb-bridge-actions--show">
             <button type="button" className="sb-primary-button" onClick={onStartListening}>
-              开始接收回复
+              对方看完了，开始收听
             </button>
-            <button type="button" className="sb-secondary-button" onClick={onOpenPhrases}>
-              换一句开场白
-            </button>
-            <button type="button" className="sb-secondary-button" onClick={onStartNew}>
-              开始新沟通
-            </button>
+            <div className="sb-bridge-toolstrip" aria-label="其他操作">
+              <button type="button" className="sb-tool-button" onClick={onOpenPhrases}>
+                <span>句</span>
+                <strong>换一句</strong>
+              </button>
+              <button type="button" className="sb-tool-button" onClick={onStartNew}>
+                <span>新</span>
+                <strong>新沟通</strong>
+              </button>
+            </div>
           </div>
         </section>
       )}
@@ -407,19 +411,17 @@ function BridgeView({
               <strong>对方说的话，会变成清楚字幕。</strong>
               <p>{listenHelper}</p>
             </div>
-            <button type="button" className="sb-primary-button" onClick={onUseMicrophone}>
-              {isCapturing ? "正在收听" : captionsDone ? "重新收听" : "开始收听"}
-            </button>
           </section>
           <CaptionPanel visibleCaptions={visibleCaptions} isCapturing={isCapturing} />
           <section className="sb-input-card sb-input-card--reply">
             <div className="sb-input-card__head">
-              <span>手动补录</span>
+              <span>备用输入</span>
               <button type="button" className="sb-step-back-button" onClick={onBackToShow}>
                 <span>←</span>
                 <strong>给对方看</strong>
               </button>
             </div>
+            <p className="sb-input-card__hint">如果环境太吵，直接让对方打字或请同行者输入。</p>
             <label className="sb-input-card__field">
               <span className="sr-only">对方回复内容</span>
             <textarea
@@ -450,44 +452,33 @@ function BridgeView({
           {captionsDone && (
             <AgentInsightCard result={agentResult} provider={agentProvider} onConfirmQuestion={onConfirmQuestion} />
           )}
-          <section className="sb-runtime-card">
-            <div className="sb-panel-head">
-              <span>安全提示</span>
-              <strong>{runtimeStatus.agentMode === "proxy-ready" ? "代理整理中" : "本地兜底可用"}</strong>
-            </div>
+          <aside className="sb-safety-strip">
+            <span>隐私</span>
             <p>{runtimeStatus.privacyNote}</p>
             <div className="sb-runtime-tags">
               <span>{runtimeStatus.asrMode === "browser-ready" ? "麦克风已授权" : "手动输入兜底"}</span>
               <span>不会在前端保存密钥</span>
             </div>
-          </section>
+          </aside>
           <div className="sb-bridge-actions sb-bridge-actions--listen">
-            {captionsDone && (
-              <button type="button" className="sb-secondary-button" onClick={onBackToReply}>
-                返回修改回复
-              </button>
-            )}
-            {captionsDone && (
-              <button type="button" className="sb-secondary-button" onClick={onRetryReply}>
-                重新整理
-              </button>
-            )}
-            {captionsDone && (
-              <button
-                type="button"
-                className="sb-primary-button"
-                onClick={onSave}
-                disabled={!agentResult}
-              >
-                保存这次重点
-              </button>
-            )}
-            <button type="button" className="sb-secondary-button" onClick={onCancelRound}>
-              取消本轮
+            <button
+              type="button"
+              className="sb-primary-button"
+              onClick={primaryListenAction}
+              disabled={isCapturing || (captionsDone && !agentResult)}
+            >
+              {primaryListenLabel}
             </button>
-            <button type="button" className="sb-secondary-button" onClick={onStartNew}>
-              开始新沟通
-            </button>
+            <div className="sb-bridge-toolstrip" aria-label="听桥操作">
+              <button type="button" className="sb-tool-button" onClick={captionsDone ? onBackToReply : onBackToShow}>
+                <span>←</span>
+                <strong>{captionsDone ? "改文字" : "上一步"}</strong>
+              </button>
+              <button type="button" className="sb-tool-button" onClick={isCapturing ? onCancelRound : onStartNew}>
+                <span>{isCapturing ? "停" : "新"}</span>
+                <strong>{isCapturing ? "取消" : "新沟通"}</strong>
+              </button>
+            </div>
           </div>
         </section>
       )}
@@ -1139,17 +1130,6 @@ export function DemoPage() {
     startCaptionCapture("正在收听。语音会转成文字，初赛 Demo 会同步给出稳定字幕。");
   };
 
-  const retryCurrentReply = () => {
-    setFlowNotice(undefined);
-    const normalizedReply = normalizeUserText(replyDraft, "", 280);
-    if (!normalizedReply) {
-      setFlowNotice("请先输入或填入一段对方回复。");
-      return;
-    }
-
-    processReply();
-  };
-
   const cancelCurrentRound = () => {
     setFlowNotice("已取消本轮接收，可以回到上一步或重新输入。");
     resetReplyProgress();
@@ -1220,7 +1200,6 @@ export function DemoPage() {
           onUseDemoReply={useDemoReply}
           onUseMicrophone={handleUseMicrophone}
           onProcessReply={processReply}
-          onRetryReply={retryCurrentReply}
           onCancelRound={cancelCurrentRound}
           onStartNew={startNewCommunication}
           onBackToShow={backToShowStep}

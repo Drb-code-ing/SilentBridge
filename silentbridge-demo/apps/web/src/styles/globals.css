@@ -440,6 +440,7 @@ button:focus-visible {
 
 .sb-primary-button:active,
 .sb-secondary-button:active,
+.sb-tool-button:active,
 .sb-scenario-card:active,
 .sb-memory-peek:active,
 .sb-record-row:active,
@@ -654,7 +655,7 @@ button:focus-visible {
 .sb-bridge-stage {
   display: grid;
   gap: 0.75rem;
-  padding-bottom: 8.5rem;
+  padding-bottom: 7.8rem;
 }
 
 .sb-listen-console {
@@ -669,11 +670,6 @@ button:focus-visible {
     linear-gradient(145deg, #e6f8ff 0%, #f7fbff 56%, #fff7df 100%);
   padding: 1rem;
   box-shadow: 0 18px 46px rgba(40, 48, 68, 0.12);
-}
-
-.sb-listen-console .sb-primary-button {
-  grid-column: 1 / -1;
-  min-height: 3.25rem;
 }
 
 .sb-listen-orb {
@@ -770,12 +766,15 @@ button:focus-visible {
 
 .sb-bridge-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 0.58rem;
 }
 
-.sb-bridge-actions--show .sb-primary-button {
-  grid-column: 1 / -1;
+.sb-bridge-actions--show {
+  border: 1px solid rgba(40, 48, 68, 0.1);
+  border-radius: 24px;
+  background: rgba(255, 251, 238, 0.88);
+  padding: 0.58rem;
+  box-shadow: 0 16px 36px rgba(40, 48, 68, 0.12);
 }
 
 .sb-bridge-actions--listen {
@@ -784,22 +783,65 @@ button:focus-visible {
   bottom: 0.62rem;
   margin-top: 0.15rem;
   border: 1px solid rgba(40, 48, 68, 0.1);
-  border-radius: 22px;
-  background: rgba(255, 251, 238, 0.9);
-  padding: 0.55rem;
-  box-shadow: 0 1rem 2.5rem rgba(40, 48, 68, 0.16);
+  border-radius: 24px;
+  background: rgba(255, 251, 238, 0.94);
+  padding: 0.56rem;
+  box-shadow: 0 0.9rem 2.2rem rgba(40, 48, 68, 0.16);
   backdrop-filter: blur(18px);
 }
 
 .sb-bridge-actions--listen .sb-primary-button {
-  grid-column: 1 / -1;
-  order: -1;
+  min-height: 3rem;
+  border-radius: 18px;
 }
 
-.sb-bridge-actions--listen .sb-secondary-button {
-  min-height: 2.85rem;
-  border-width: 1px;
+.sb-bridge-toolstrip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.44rem;
+}
+
+.sb-bridge-actions--show .sb-bridge-toolstrip {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sb-tool-button {
+  display: grid;
+  min-height: 3rem;
+  place-items: center;
+  align-content: center;
+  gap: 0.2rem;
+  border: 1px solid rgba(40, 48, 68, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #283044;
+  padding: 0.36rem 0.25rem;
+  text-align: center;
   box-shadow: none;
+  transition:
+    transform 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.sb-tool-button span {
+  display: grid;
+  width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  border-radius: 9px;
+  background: rgba(52, 118, 168, 0.1);
+  color: #2f6d95;
+  font-size: 0.72rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.sb-tool-button strong {
+  color: inherit;
+  font-size: 0.7rem;
+  font-weight: 950;
+  line-height: 1.05;
 }
 
 .sb-caption-panel {
@@ -1530,7 +1572,17 @@ button:focus-visible {
 }
 
 .sb-input-card--reply {
-  background: rgba(255, 255, 255, 0.92);
+  border-style: dashed;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 10px 26px rgba(40, 48, 68, 0.06);
+}
+
+.sb-input-card__hint {
+  margin: -0.25rem 0 0;
+  color: rgba(40, 48, 68, 0.62);
+  font-size: 0.78rem;
+  font-weight: 760;
+  line-height: 1.4;
 }
 
 .sb-input-card--home {
@@ -1632,22 +1684,6 @@ button:focus-visible {
   line-height: 1.1;
 }
 
-.sb-text-button {
-  justify-self: start;
-  border: 0;
-  background: transparent;
-  color: #3b6f8f;
-  font-weight: 800;
-  font-size: 13px;
-}
-
-.sb-text-button--primary {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: #202020;
-  color: #ffffff;
-}
-
 .sb-record-tool {
   justify-self: start;
   min-height: 34px;
@@ -1687,16 +1723,22 @@ button:focus-visible {
   font-weight: 700;
 }
 
-.sb-runtime-card {
+.sb-safety-strip {
   display: grid;
-  gap: 8px;
-  padding: 12px;
+  gap: 0.42rem;
+  padding: 0.68rem 0.78rem;
   border-radius: 18px;
   border: 1px solid rgba(40, 48, 68, 0.08);
   background: rgba(255, 255, 255, 0.5);
 }
 
-.sb-runtime-card p {
+.sb-safety-strip > span {
+  color: #3476a8;
+  font-size: 0.74rem;
+  font-weight: 950;
+}
+
+.sb-safety-strip p {
   margin: 0;
   color: rgba(40, 48, 68, 0.56);
   font-size: 12px;

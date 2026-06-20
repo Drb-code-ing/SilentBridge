@@ -62,7 +62,7 @@ export function createUnderstandingFromTranscript(input: {
   transcript: TranscriptSegmentPayload[] | CaptionLine[];
   userMessage: string;
 }): AiUnderstanding {
-  const joinedText = input.transcript.map((line) => line.text).join("，").trim();
+  const joinedText = input.transcript.map((line) => line.text).join("").trim();
 
   if (!joinedText) {
     return input.flow.aiUnderstanding;

@@ -101,7 +101,7 @@ export function createRecordFromSession(input: {
   const latestRound = input.session.rounds[input.session.rounds.length - 1];
   const understanding = latestRound?.understanding ?? input.flow.aiUnderstanding;
 
-  const transcriptText = latestRound?.transcript.map((line) => line.text).join("，").trim();
+  const transcriptText = latestRound?.transcript.map((line) => line.text).join("").trim();
   const shortSummary = transcriptText
     ? transcriptText.length > 42
       ? `${transcriptText.slice(0, 42)}...`
