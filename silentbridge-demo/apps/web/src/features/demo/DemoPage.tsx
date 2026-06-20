@@ -246,10 +246,10 @@ function AgentInsightCard({
     <section className="sb-agent-card">
       <div className="sb-panel-head">
         <span>小桥理解</span>
-        <strong>Agent: {result.graphName}</strong>
+        <strong>已整理出确认点</strong>
       </div>
       <div className="sb-agent-provider">
-        来源：{provider === "proxy" ? "后端代理" : "本地兜底"}
+        {provider === "proxy" ? "已通过安全代理整理" : "本地安全整理"}
       </div>
 
       <div className="sb-agent-grid">
@@ -452,13 +452,13 @@ function BridgeView({
           )}
           <section className="sb-runtime-card">
             <div className="sb-panel-head">
-              <span>运行状态</span>
-              <strong>{runtimeStatus.agentMode === "proxy-ready" ? "后端代理" : "本地兜底 Agent"}</strong>
+              <span>安全提示</span>
+              <strong>{runtimeStatus.agentMode === "proxy-ready" ? "代理整理中" : "本地兜底可用"}</strong>
             </div>
             <p>{runtimeStatus.privacyNote}</p>
             <div className="sb-runtime-tags">
-              <span>ASR: {runtimeStatus.asrMode === "browser-ready" ? "浏览器麦克风已准备" : "手动输入兜底"}</span>
-              <span>Graph: {runtimeStatus.graphName}</span>
+              <span>{runtimeStatus.asrMode === "browser-ready" ? "麦克风已授权" : "手动输入兜底"}</span>
+              <span>不会在前端保存密钥</span>
             </div>
           </section>
           <div className="sb-bridge-actions sb-bridge-actions--listen">
@@ -642,6 +642,7 @@ function PhrasesView({
                 >
                   <span>{phrase.intent}</span>
                   <strong>{phrase.text}</strong>
+                  <small>使用</small>
                 </button>
               ))}
             </div>
