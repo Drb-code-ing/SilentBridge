@@ -412,6 +412,26 @@ function BridgeView({
               <p>{listenHelper}</p>
             </div>
           </section>
+          <div className="sb-bridge-actions sb-bridge-actions--listen">
+            <button
+              type="button"
+              className="sb-primary-button"
+              onClick={primaryListenAction}
+              disabled={isCapturing || (captionsDone && !agentResult)}
+            >
+              {primaryListenLabel}
+            </button>
+            <div className="sb-bridge-toolstrip" aria-label="听桥操作">
+              <button type="button" className="sb-tool-button" onClick={captionsDone ? onBackToReply : onBackToShow}>
+                <span>←</span>
+                <strong>{captionsDone ? "改文字" : "上一步"}</strong>
+              </button>
+              <button type="button" className="sb-tool-button" onClick={isCapturing ? onCancelRound : onStartNew}>
+                <span>{isCapturing ? "停" : "新"}</span>
+                <strong>{isCapturing ? "取消" : "新沟通"}</strong>
+              </button>
+            </div>
+          </div>
           <CaptionPanel visibleCaptions={visibleCaptions} isCapturing={isCapturing} />
           <section className="sb-input-card sb-input-card--reply">
             <div className="sb-input-card__head">
@@ -460,26 +480,6 @@ function BridgeView({
               <span>不会在前端保存密钥</span>
             </div>
           </aside>
-          <div className="sb-bridge-actions sb-bridge-actions--listen">
-            <button
-              type="button"
-              className="sb-primary-button"
-              onClick={primaryListenAction}
-              disabled={isCapturing || (captionsDone && !agentResult)}
-            >
-              {primaryListenLabel}
-            </button>
-            <div className="sb-bridge-toolstrip" aria-label="听桥操作">
-              <button type="button" className="sb-tool-button" onClick={captionsDone ? onBackToReply : onBackToShow}>
-                <span>←</span>
-                <strong>{captionsDone ? "改文字" : "上一步"}</strong>
-              </button>
-              <button type="button" className="sb-tool-button" onClick={isCapturing ? onCancelRound : onStartNew}>
-                <span>{isCapturing ? "停" : "新"}</span>
-                <strong>{isCapturing ? "取消" : "新沟通"}</strong>
-              </button>
-            </div>
-          </div>
         </section>
       )}
     </div>
