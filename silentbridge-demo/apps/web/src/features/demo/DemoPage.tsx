@@ -98,7 +98,19 @@ function HomeView({
           <h1>听不清时，先把手机递过去。</h1>
           <p>无声桥会先展示一句开场白，再接住对方说的话，最后留下重点。</p>
         </div>
-        <label className="sb-input-card">
+        <button type="button" className="sb-home-start-button" onClick={onStart}>
+          <span>现在开始</span>
+          <strong>把手机递给对方</strong>
+          <small>展示开场白 &gt; 收听转文字 &gt; 保存重点</small>
+        </button>
+      </section>
+
+      <section className="sb-home-draft-card">
+        <div className="sb-panel-head">
+          <span>给对方看的第一句话</span>
+          <strong>可以直接用，也可以临时改。</strong>
+        </div>
+        <label className="sb-input-card sb-input-card--home">
           <span>我想让对方先看到</span>
           <textarea
             value={messageDraft}
@@ -107,15 +119,12 @@ function HomeView({
             rows={3}
           />
         </label>
-        <button type="button" className="sb-primary-button" onClick={onStart}>
-          开始现场沟通
-        </button>
       </section>
 
       <section className="sb-section">
         <div className="sb-section-title">
           <h2>现在可能遇到</h2>
-          <button type="button" onClick={onOpenPhrases}>找一句话</button>
+          <button type="button" className="sb-section-tool" onClick={onOpenPhrases}>找一句话</button>
         </div>
         <div className="sb-scenario-row" aria-label="常用场景">
           {quickScenarios.map((scenario) => (
@@ -532,8 +541,11 @@ function RecordsView({
               onClick={() => onSelectRecord(record.id)}
             >
               <span>{record.time}</span>
-              <strong>{record.title}</strong>
-              <small>{record.place}</small>
+              <div>
+                <strong>{record.title}</strong>
+                <small>{record.place}</small>
+                <p>{record.summary}</p>
+              </div>
             </button>
           ))}
         </section>
@@ -545,7 +557,8 @@ function RecordsView({
     <div className="sb-view sb-record-detail-view">
       <section className="sb-record-detail-head">
         <button type="button" className="sb-step-back-button" onClick={onBackToList}>
-          返回记录列表
+          <span>←</span>
+          <strong>记录列表</strong>
         </button>
         <span>{selectedRecord.time}</span>
         <button
