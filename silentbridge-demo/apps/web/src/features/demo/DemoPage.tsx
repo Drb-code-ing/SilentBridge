@@ -15,7 +15,7 @@ import {
   type QuickScenario,
   type RecordItem
 } from "./demo-content";
-import { asrStateLabels, type AsrStatus } from "./asr-simulator";
+import type { AsrStatus } from "./asr-simulator";
 import { runDemoAgent, type AgentRunResult } from "./agent-graph";
 import { transcribeSession } from "./asr-client";
 import { runSessionAgent } from "./agent-client";
@@ -172,20 +172,6 @@ function DisplayCard({ message }: { message: string }) {
     <section className="sb-display-card">
       <div className="sb-display-card__label">把这句话给对方看</div>
       <p>{message}</p>
-    </section>
-  );
-}
-
-function AsrStatusPanel({ status }: { status: AsrStatus }) {
-  const label = asrStateLabels[status];
-
-  return (
-    <section className="sb-asr-panel">
-      <span className={`sb-asr-dot sb-asr-dot--${status}`} />
-      <div>
-        <strong>{label.title}</strong>
-        <p>{label.helper}</p>
-      </div>
     </section>
   );
 }
@@ -358,6 +344,16 @@ function BridgeView({
     !isCapturing &&
     visibleCaptions.length > 0 &&
     (Boolean(agentResult) || visibleCaptions.length >= expectedCaptionCount);
+  const listenTitle = captionsDone
+    ? "已经整理成文字"
+    : isCapturing
+      ? "正在收听对方说话"
+      : "准备收听";
+  const listenHelper = captionsDone
+    ? "字幕和重点已经生成，可以保存或继续追问。"
+    : isCapturing
+      ? "请把手机靠近对方，文字会逐条出现。"
+      : "点击后开始收听；如果浏览器不支持，会自动切到演示转写流。";
 
   return (
     <div className="sb-view">
@@ -377,7 +373,7 @@ function BridgeView({
       {step === "show" && (
         <section className="sb-bridge-stage">
           <DisplayCard message={message} />
-          <div className="sb-bridge-actions">
+          <div className="sb-bridge-actions sb-bridge-actions--show">
             <button type="button" className="sb-primary-button" onClick={onStartListening}>
               开始接收回复
             </button>
@@ -393,11 +389,26 @@ function BridgeView({
 
       {step === "listen" && (
         <section className="sb-bridge-stage">
+          <section className={`sb-listen-console sb-listen-console--${asrStatus}`}>
+            <div className="sb-listen-orb" aria-hidden="true">
+              <span />
+            </div>
+            <div className="sb-listen-copy">
+              <span>{listenTitle}</span>
+              <strong>对方说的话，会变成清楚字幕。</strong>
+              <p>{listenHelper}</p>
+            </div>
+            <button type="button" className="sb-primary-button" onClick={onUseMicrophone}>
+              {isCapturing ? "正在收听" : captionsDone ? "重新收听" : "开始收听"}
+            </button>
+          </section>
+          <CaptionPanel visibleCaptions={visibleCaptions} isCapturing={isCapturing} />
           <section className="sb-input-card sb-input-card--reply">
             <div className="sb-input-card__head">
-              <span>请对方回复</span>
-              <button type="button" className="sb-text-button" onClick={onBackToShow}>
-                返回上一步
+              <span>手动补录</span>
+              <button type="button" className="sb-step-back-button" onClick={onBackToShow}>
+                <span>←</span>
+                <strong>给对方看</strong>
               </button>
             </div>
             <label className="sb-input-card__field">
@@ -410,18 +421,17 @@ function BridgeView({
               rows={4}
             />
             </label>
-            <button type="button" className="sb-text-button" onClick={onUseDemoReply}>
-              填入演示回复
-            </button>
-            <button type="button" className="sb-text-button" onClick={onUseMicrophone}>
-              用麦克风收听
-            </button>
-            <button type="button" className="sb-text-button sb-text-button--primary" onClick={onProcessReply}>
-              整理这段回复
-            </button>
+            <div className="sb-capture-toolbar" aria-label="回复输入方式">
+              <button type="button" className="sb-capture-tool" onClick={onUseDemoReply}>
+                <span>✎</span>
+                <strong>填入演示</strong>
+              </button>
+              <button type="button" className="sb-capture-tool" onClick={onProcessReply}>
+                <span>✓</span>
+                <strong>整理回复</strong>
+              </button>
+            </div>
           </section>
-          <AsrStatusPanel status={asrStatus} />
-          <CaptionPanel visibleCaptions={visibleCaptions} isCapturing={isCapturing} />
           {captionsDone && (
             <div className="sb-summary-card">
               <span>小桥抓到的重点</span>
@@ -442,7 +452,7 @@ function BridgeView({
               <span>Graph: {runtimeStatus.graphName}</span>
             </div>
           </section>
-          <div className="sb-bridge-actions">
+          <div className="sb-bridge-actions sb-bridge-actions--listen">
             {captionsDone && (
               <button type="button" className="sb-secondary-button" onClick={onBackToReply}>
                 返回修改回复
@@ -453,14 +463,16 @@ function BridgeView({
                 重新整理
               </button>
             )}
-            <button
-              type="button"
-              className="sb-primary-button"
-              onClick={onSave}
-              disabled={!captionsDone || !agentResult}
-            >
-              保存这次重点
-            </button>
+            {captionsDone && (
+              <button
+                type="button"
+                className="sb-primary-button"
+                onClick={onSave}
+                disabled={!agentResult}
+              >
+                保存这次重点
+              </button>
+            )}
             <button type="button" className="sb-secondary-button" onClick={onCancelRound}>
               取消本轮
             </button>
@@ -506,7 +518,7 @@ function RecordsView({
         <section className="sb-page-title">
           <p className="sb-kicker">沟通小本本</p>
           <h1>留下来的话，之后还能用。</h1>
-          <button type="button" className="sb-text-button" onClick={onResetRecords}>
+          <button type="button" className="sb-record-tool" onClick={onResetRecords}>
             清空演示记录
           </button>
         </section>
@@ -532,13 +544,13 @@ function RecordsView({
   return (
     <div className="sb-view sb-record-detail-view">
       <section className="sb-record-detail-head">
-        <button type="button" className="sb-text-button" onClick={onBackToList}>
+        <button type="button" className="sb-step-back-button" onClick={onBackToList}>
           返回记录列表
         </button>
         <span>{selectedRecord.time}</span>
         <button
           type="button"
-          className="sb-text-button"
+          className="sb-record-tool sb-record-tool--danger"
           onClick={() => onDeleteRecord(selectedRecord.id)}
         >
           删除这条
@@ -889,6 +901,29 @@ export function DemoPage() {
     setBridgeStep("listen");
   };
 
+  const beginReplyRun = () => {
+    const runId = replyRunIdRef.current + 1;
+    replyRunIdRef.current = runId;
+    setVisibleCaptions([]);
+    setAgentResult(undefined);
+    setAgentProvider("fallback");
+    setProcessedReplyDraft("");
+    setBridgeStep("listen");
+
+    return runId;
+  };
+
+  const startCaptionCapture = (notice?: string) => {
+    beginReplyRun();
+    setIsCapturing(true);
+    setAsrStatus("listening");
+    setBridgeStep("listen");
+
+    if (notice) {
+      setFlowNotice(notice);
+    }
+  };
+
   const processReply = () => {
     const normalizedReply = normalizeUserText(replyDraft, "", 280);
 
@@ -904,20 +939,12 @@ export function DemoPage() {
       return;
     }
 
-    const runId = replyRunIdRef.current + 1;
-    replyRunIdRef.current = runId;
-    setVisibleCaptions([]);
-    setAgentResult(undefined);
-    setAgentProvider("fallback");
-    setProcessedReplyDraft("");
-    setAsrStatus("listening");
-    setBridgeStep("listen");
-
     if (!normalizedReply) {
-      setIsCapturing(true);
+      startCaptionCapture();
       return;
     }
 
+    const runId = beginReplyRun();
     setIsCapturing(false);
     setAsrStatus("transcribing");
 
@@ -1091,14 +1118,11 @@ export function DemoPage() {
     setAudioCaptureState(nextAudioState);
 
     if (!nextAudioState.support.supported || nextAudioState.permissionState !== "granted") {
-      setFlowNotice("当前浏览器无法直接收听，请让对方打字、粘贴转文字结果，或使用演示回复。");
-      setIsCapturing(false);
-      setAsrStatus("idle");
+      startCaptionCapture("当前浏览器无法直接调用麦克风，已切到演示转写流，保证初赛现场能跑通。");
       return;
     }
 
-    setFlowNotice("麦克风已准备好。初赛 Demo 会保留手动输入作为稳定兜底。");
-    setAsrStatus("listening");
+    startCaptionCapture("正在收听。语音会转成文字，初赛 Demo 会同步给出稳定字幕。");
   };
 
   const retryCurrentReply = () => {
