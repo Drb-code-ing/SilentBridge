@@ -318,7 +318,7 @@ function BridgeView({
   onUseDemoReply,
   onUseMicrophone,
   onProcessReply,
-  onCancelRound,
+  onStopListening,
   onStartNew,
   onBackToShow,
   onBackToReply,
@@ -344,7 +344,7 @@ function BridgeView({
   onUseDemoReply: () => void;
   onUseMicrophone: () => void;
   onProcessReply: () => void;
-  onCancelRound: () => void;
+  onStopListening: () => void;
   onStartNew: () => void;
   onBackToShow: () => void;
   onBackToReply: () => void;
@@ -469,9 +469,9 @@ function BridgeView({
                 <span>←</span>
                 <strong>{captionsDone ? "改文字" : "上一步"}</strong>
               </button>
-              <button type="button" className="sb-tool-button" onClick={isCapturing ? onCancelRound : onStartNew}>
+              <button type="button" className="sb-tool-button" onClick={isCapturing ? onStopListening : onStartNew}>
                 <span>{isCapturing ? "停" : "新"}</span>
-                <strong>{isCapturing ? "取消" : "新沟通"}</strong>
+                <strong>{isCapturing ? "停止" : "新沟通"}</strong>
               </button>
             </div>
           </div>
@@ -954,6 +954,7 @@ export function DemoPage() {
   };
 
   const backToShowStep = () => {
+    replyRunIdRef.current += 1;
     stopSpeechCapture();
     setCaptureMode("idle");
     setIsCapturing(false);
@@ -1367,12 +1368,13 @@ export function DemoPage() {
   };
 
   const cancelCurrentRound = () => {
+    replyRunIdRef.current += 1;
     stopSpeechCapture();
     setCaptureMode("idle");
-    setFlowNotice("已取消本轮接收，可以回到上一步或重新输入。");
-    resetReplyProgress();
-    setReplyDraft("");
-    setBridgeStep("show");
+    setIsCapturing(false);
+    setAsrStatus("idle");
+    setFlowNotice("已停止收听，可以重新收听，或让对方直接打字。");
+    setBridgeStep("listen");
   };
 
   const startNewCommunication = () => {
@@ -1440,7 +1442,7 @@ export function DemoPage() {
           onUseDemoReply={useDemoReply}
           onUseMicrophone={handleUseMicrophone}
           onProcessReply={processReply}
-          onCancelRound={cancelCurrentRound}
+          onStopListening={cancelCurrentRound}
           onStartNew={startNewCommunication}
           onBackToShow={backToShowStep}
           onBackToReply={backToReplyInput}
