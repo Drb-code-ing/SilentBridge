@@ -58,5 +58,20 @@ function shouldUseApiProxy() {
   }
 
   const search = new URLSearchParams(window.location.search);
-  return search.get("api") === "proxy" || window.localStorage.getItem("silentbridge.apiProxy") === "enabled";
+  if (search.get("api") === "local") {
+    return false;
+  }
+  if (search.get("api") === "proxy") {
+    return true;
+  }
+
+  const stored = window.localStorage.getItem("silentbridge.apiProxy");
+  if (stored === "enabled") {
+    return true;
+  }
+  if (stored === "disabled") {
+    return false;
+  }
+
+  return true;
 }

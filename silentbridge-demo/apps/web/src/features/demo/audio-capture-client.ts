@@ -1,6 +1,15 @@
+export type AudioCaptureFailureReason =
+  | "no-window"
+  | "no-browser-api"
+  | "permission-denied"
+  | "no-device"
+  | "hardware-error"
+  | "insecure-context"
+  | "unknown";
+
 export type AudioCaptureSupport =
   | { supported: true; mode: "speech-recognition" | "media-recorder" }
-  | { supported: false; reason: "no-window" | "no-browser-api" | "permission-denied" | "unknown" };
+  | { supported: false; reason: AudioCaptureFailureReason };
 
 export interface AudioCaptureState {
   support: AudioCaptureSupport;
@@ -36,13 +45,31 @@ export async function requestMicrophoneAccess(): Promise<AudioCaptureState> {
     return { support, permissionState: "denied" };
   }
 
+  if (
+    support.mode === "speech-recognition" &&
+    (typeof navigator === "undefined" || typeof navigator.mediaDevices?.getUserMedia !== "function")
+  ) {
+    return { support, permissionState: "prompt" };
+  }
+
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     stream.getTracks().forEach((track) => track.stop());
     return { support, permissionState: "granted" };
-  } catch {
+  } catch (error) {
+    const errorName = (error as { name?: string })?.name ?? "";
+    let reason: AudioCaptureFailureReason = "permission-denied";
+
+    if (errorName === "NotFoundError" || errorName === "DevicesNotFoundError") {
+      reason = "no-device";
+    } else if (errorName === "NotReadableError" || errorName === "TrackStartError") {
+      reason = "hardware-error";
+    } else if (errorName === "SecurityError") {
+      reason = "insecure-context";
+    }
+
     return {
-      support: { supported: false, reason: "permission-denied" },
+      support: { supported: false, reason },
       permissionState: "denied"
     };
   }

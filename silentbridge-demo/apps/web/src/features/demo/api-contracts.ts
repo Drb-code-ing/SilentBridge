@@ -8,7 +8,7 @@ export interface TranscriptSegmentPayload {
 }
 
 export type TranscriptSource = "microphone" | "fallback" | "manual";
-export type TranscriptProvider = "proxy" | "fallback" | "manual";
+export type TranscriptProvider = "proxy" | "fallback" | "manual" | "browser";
 
 export interface TranscribeRequest {
   sessionId: string;
@@ -16,6 +16,8 @@ export interface TranscribeRequest {
   source: TranscriptSource;
   audioRef?: string;
   manualText?: string;
+  audioBase64?: string;
+  audioLength?: number;
 }
 
 export interface TranscribeResponse {
@@ -51,4 +53,5 @@ export interface AgentRunResponse {
     suggestedQuestion: string;
     plainSummary: string;
   };
+  correctedText?: string;
 }

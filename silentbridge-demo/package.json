@@ -6,7 +6,10 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --filter @silentbridge/web dev",
+    "dev:api": "pnpm --filter @silentbridge/api dev",
+    "dev:all": "pnpm -r --parallel dev",
     "build": "pnpm --filter @silentbridge/web build",
+    "build:api": "pnpm --filter @silentbridge/api build",
     "preview": "pnpm --filter @silentbridge/web preview",
     "typecheck": "pnpm -r typecheck"
   },

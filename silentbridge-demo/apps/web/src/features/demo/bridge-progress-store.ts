@@ -91,6 +91,7 @@ export function loadBridgeProgressDraft(): BridgeProgressDraft | undefined {
     }
 
     const agentResult = isAgentRunResult(parsed.agentResult) ? parsed.agentResult : undefined;
+    const restoredCaptions = Array.isArray(parsed.visibleCaptions) ? (parsed.visibleCaptions as CaptionLine[]) : [];
 
     return {
       activeTab: parsed.activeTab,
@@ -99,7 +100,7 @@ export function loadBridgeProgressDraft(): BridgeProgressDraft | undefined {
       bridgeSourceLabel: stringOr(parsed.bridgeSourceLabel, "默认开场白"),
       activeFlowId: parsed.activeFlowId,
       activeSession: parsed.activeSession,
-      visibleCaptions: Array.isArray(parsed.visibleCaptions) ? (parsed.visibleCaptions as CaptionLine[]) : [],
+      visibleCaptions: agentResult ? restoredCaptions : [],
       asrStatus: agentResult ? "done" : "idle",
       agentResult,
       agentProvider: isOneOf(parsed.agentProvider, agentProviders) ? parsed.agentProvider : "fallback",

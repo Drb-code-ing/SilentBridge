@@ -1,10 +1,10 @@
-﻿# SilentBridge 无声桥 - 证据链文档
+﻿﻿﻿﻿# SilentBridge 无声桥 - 证据链文档
 
 ## 项目名称
 SilentBridge 无声桥
 
 ## 当前阶段
-Phase 13 - Core Function Completion
+UX 优化 Phase 3 - 失败恢复 + 权限引导 + 记录页 + 组件拆分（已完成）
 
 ## Session ID 管理
 所有 Trae session ID 统一维护在 `session-registry.md`。本文件只记录阶段过程、验收和证据截图。
@@ -400,3 +400,128 @@ Phase 05 - 真实语音识别、转写和 AI 摘要链路
 - Evidence:
   - assets/24-trae-phase13-core-function-plan.png
   - assets/25-trae-phase13-completion-review.png
+
+---
+
+## Phase 15 - Browser ASR Pilot
+
+- Time: 2026-06-20
+- Session Registry Reference: See `session-registry.md` row: `Phase 15 - Browser ASR Pilot`.
+- Goal: Add a browser-side ASR pilot so the listening step attempts real speech recognition first, then falls back safely when recognition is unavailable, silent, or unstable.
+- Changes:
+  - Added browser Web Speech API adapter with start/result/error/end lifecycle handling.
+  - Added ASR states for requesting, fallback, and error feedback.
+  - Split browser speech capture from fallback demo caption animation.
+  - Added microphone readiness handling for SpeechRecognition-first browsers.
+  - Added browser transcript provider and browser speech transcript builder.
+  - Preserved manual input, fallback demo captions, Agent understanding, saved record, and continue-follow-up flows.
+  - Added silent-listening timeout so a granted microphone does not leave the app stuck in "正在收听".
+- Verification:
+  - pnpm typecheck: passed
+  - pnpm build: passed
+  - Browser ASR success path with simulated SpeechRecognition result: passed
+  - Granted microphone with no recognized speech falls back to demo captions: passed
+  - Manual reply input regression: passed
+  - Listening cancel/recovery regression: passed
+  - 360px mobile overflow check: passed
+  - Console warning/error check: passed
+- Evidence:
+  - assets/26-trae-phase15-asr-plan-execution.png
+  - assets/27-trae-phase15-asr-code-change.png
+  - assets/28-trae-phase15-asr-review-summary.png
+
+---
+
+## UX 优化 - ASR 纠错与可视化增强
+
+- Time: 2026-07-07
+- Goal: 修复语音识别与 AI 摘要的关键体验问题，增强字幕纠错可视化、录音状态反馈和 TTS 朗读能力。
+- Changes:
+  - 后端 agent-run 新增 correctedText 字段，GLM-4 基于场景上下文自动纠正百度 ASR 同音字错误（如药店场景「这都要」→「这个药」）。
+  - LLM prompt 增加场景示例，要求结构化「标签：内容」格式，禁止原文复制，确保 AI 摘要真正提炼重点。
+  - 前端 caption-correction.ts 设置 corrected 和 originalText 字段，字幕区显示原识别文案，AI 摘要显示纠错后文案。
+  - CaptionPanel 新增蓝色「已纠错」徽章和灰色斜体「原识别：xxx」原文字段，含顶部虚线分隔。
+  - 新增 recording-timer.ts 纯函数格式化录音时长（MM:SS），BridgeView 录音时显示波形动画和计时器。
+  - 新增 tts-player.ts 封装 speechSynthesis，AgentInsightCard 增加黄色喇叭按钮支持朗读/停止建议问题。
+  - 新增 agent-loading-state.ts 纯函数和 AgentLoadingCard.tsx 骨架卡，ASR 完成但 Agent 未返回时显示加载占位。
+  - 修复「停止并识别」按钮在录音中不可点击的问题（disabled 条件调整为 captureMode === 'recording' 时可用）。
+- Verification:
+  - pnpm typecheck: passed
+  - pnpm build: passed
+  - Web 测试: 35 passed（含 caption-correction 11、agent-loading-state 6、tts-player 7、recording-timer 6、AgentLoadingCard 4、smoke 1）
+  - API 测试: 3 passed
+  - E2E: 字幕纠错徽章显示、录音计时器波形、TTS 朗读建议问题均通过
+- Evidence:
+  - 待补充：字幕纠错徽章截图
+  - 待补充：录音波形计时器截图
+  - 待补充：TTS 朗读按钮截图
+
+---
+
+## UX 优化 Phase 3 - 失败恢复 + 权限引导 + 记录页 + 组件拆分
+
+- Time: 2026-07-07
+- Goal: 补齐失败恢复路径、麦克风权限引导、历史记录页搜索筛选，并拆分 DemoPage 巨型组件以提升可维护性。
+- Plan: `.trae/documents/ux-optimization-phase3-plan.md`
+
+### Step 1 - 失败恢复路径
+- Changes:
+  - 新增 failure-recovery.ts 纯函数：inferFailureScenario 区分 4 种场景（asr-failed/agent-failed/microphone-denied/none），getRecoveryOptions 返回对应恢复选项。
+  - DemoPage 集成恢复选项区，handleRecoveryAction 分发 5 种 action（retry-listen/manual-input/demo-captions/retry-agent/view-captions）。
+  - 新增 retryAgentForCurrentTranscript 函数：AI 整理失败时字幕已识别不丢失，可重试整理。
+  - globals.css 新增 .sb-recovery-options / .sb-recovery-option 样式。
+- Tests: failure-recovery.test.ts 10 passed
+
+### Step 2 - 麦克风权限引导
+- Changes:
+  - 新增 microphone-permission-guide.ts 纯函数：对 7 种 AudioCaptureFailureReason（no-window/no-browser-api/permission-denied/no-device/hardware-error/insecure-context/unknown）返回分场景引导 { title, steps, fallbackHint }。
+  - BridgeView 在 microphone-denied 场景渲染权限引导卡片，替代原来的一句话错误提示。
+  - globals.css 新增 .sb-permission-guide / .sb-permission-steps / .sb-permission-fallback 样式。
+- Tests: microphone-permission-guide.test.ts 8 passed
+
+### Step 3 - 历史记录页优化
+- Changes:
+  - 新增 record-filter.ts 纯函数 filterRecords：支持 query 模糊匹配（title/summary/place/keyPoints）+ flowIdFilter 场景筛选。
+  - RecordsView 集成搜索框 + 场景 chips（全部/药店/政务/交通/通用）+ 空状态提示。
+  - globals.css 新增 .sb-record-search / .sb-record-search-input / .sb-record-chips / .sb-record-chip / .sb-record-empty 样式。
+- Tests: record-filter.test.ts 12 passed
+
+### Step 4 - DemoPage 组件拆分
+- Changes:
+  - DemoPage.tsx 从 1748 行 → 906 行（减少 48%），11 个组件拆分为独立文件。
+  - Batch A（无状态组件）：Mascot.tsx / AppTopBar.tsx / ProgressDots.tsx / DisplayCard.tsx / BottomNav.tsx
+  - Batch B（含逻辑组件）：CaptionPanel.tsx / AgentInsightCard.tsx / PhrasesView.tsx
+  - Batch C（大组件）：HomeView.tsx / RecordsView.tsx（导出 RecordsMode）/ BridgeView.tsx（导出 CaptureMode）
+  - 共享类型 CaptureMode/RecordsMode 由归属组件 export，DemoPage 反向导入，避免循环依赖。
+  - 纯结构重构，未改变任何功能行为，所有 props 传递保持原样。
+
+### Phase 3 全量验证
+- pnpm typecheck: passed
+- pnpm --filter @silentbridge/web test: 65 passed（含新增 30 个纯函数测试）
+- pnpm --filter @silentbridge/api test: 3 passed
+- pnpm build: passed（64 modules）
+
+### Phase 3 新增文件清单（17 个）
+- failure-recovery.ts / failure-recovery.test.ts
+- microphone-permission-guide.ts / microphone-permission-guide.test.ts
+- record-filter.ts / record-filter.test.ts
+- Mascot.tsx / AppTopBar.tsx / ProgressDots.tsx / DisplayCard.tsx / BottomNav.tsx
+- CaptionPanel.tsx / AgentInsightCard.tsx / PhrasesView.tsx
+- HomeView.tsx / RecordsView.tsx / BridgeView.tsx
+
+### Phase 3 修改文件清单
+- DemoPage.tsx - 移除 11 个组件定义，保留主组件状态编排；清理未使用 import（tabLabels/phrasePacks/createTtsPlayer/formatRecordingDuration/isAgentLoading/AgentLoadingCard/inferFailureScenario/getRecoveryOptions/getPermissionGuide/filterRecords/FlowIdFilter/AudioCaptureFailureReason/AgentRuntimeStatus/quickScenarios 等）
+- globals.css - 新增恢复选项、权限引导、记录搜索筛选样式
+- agent-system-prompt.ts / agent-run.ts / api-contracts.ts - correctedText 字段（Phase 3 前已完成）
+
+### E2E 回归验证路径
+- 失败恢复：ASR 失败显示 3 个恢复选项；AI 整理失败显示 3 个恢复选项且字幕保留；麦克风拒绝显示权限引导步骤
+- 权限引导：7 种失败原因各有对应标题+步骤+fallback 提示
+- 记录页：搜索框匹配 4 字段；场景 chips 筛选；组合筛选；无匹配空状态
+- 组件拆分回归：首页→场景→沟通桥→收听→字幕→AI 整理→保存→记录→继续追问 全链路正常；4 tab 切换正常
+
+- Evidence:
+  - 待补充：失败恢复选项截图
+  - 待补充：麦克风权限引导卡片截图
+  - 待补充：记录页搜索筛选截图
+  - 待补充：组件拆分前后代码对比截图

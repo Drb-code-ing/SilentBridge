@@ -8,6 +8,8 @@ export interface CaptionLine {
   text: string;
   time: string;
   important?: boolean;
+  corrected?: boolean;
+  originalText?: string;
 }
 
 export interface QuickScenario {
