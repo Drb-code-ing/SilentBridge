@@ -16,6 +16,8 @@ export interface TranscribeRequest {
   source: TranscriptSource;
   audioRef?: string;
   manualText?: string;
+  audioBase64?: string;
+  audioLength?: number;
 }
 
 export interface TranscribeResponse {
@@ -51,4 +53,5 @@ export interface AgentRunResponse {
     suggestedQuestion: string;
     plainSummary: string;
   };
+  correctedText?: string;
 }
