@@ -1,6 +1,5 @@
-// SilentBridge Vercel API - pure JS, no monorepo imports, no Hono
+// SilentBridge Vercel API - classic Node (req, res) handler
 export const config = {
-  runtime: "nodejs",
   maxDuration: 30
 };
 
@@ -18,35 +17,48 @@ function nowTime() {
   return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
 }
 
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "access-control-allow-origin": "*",
-      "access-control-allow-methods": "GET,POST,OPTIONS",
-      "access-control-allow-headers": "Content-Type, Authorization"
-    }
+function send(res, status, data) {
+  res.statusCode = status;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.end(JSON.stringify(data));
+}
+
+function readBody(req) {
+  return new Promise(function (resolve, reject) {
+    var chunks = [];
+    req.on("data", function (c) {
+      chunks.push(c);
+    });
+    req.on("end", function () {
+      try {
+        var raw = Buffer.concat(chunks).toString("utf8") || "{}";
+        resolve(JSON.parse(raw));
+      } catch (e) {
+        reject(e);
+      }
+    });
+    req.on("error", reject);
   });
 }
 
 async function baiduToken(apiKey, secretKey) {
-  const url =
+  var url =
     "https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=" +
     encodeURIComponent(apiKey) +
     "&client_secret=" +
     encodeURIComponent(secretKey);
-  const res = await fetch(url, { method: "POST" });
-  const data = await res.json();
-  if (!data.access_token) {
-    throw new Error("failed-to-get-baidu-token");
-  }
+  var res = await fetch(url, { method: "POST" });
+  var data = await res.json();
+  if (!data.access_token) throw new Error("failed-to-get-baidu-token");
   return data.access_token;
 }
 
 async function baiduAsr(apiKey, secretKey, audioBase64, audioLength) {
-  const token = await baiduToken(apiKey, secretKey);
-  const res = await fetch("https://vop.baidu.com/server_api", {
+  var token = await baiduToken(apiKey, secretKey);
+  var res = await fetch("https://vop.baidu.com/server_api", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -54,20 +66,20 @@ async function baiduAsr(apiKey, secretKey, audioBase64, audioLength) {
       rate: 16000,
       channel: 1,
       cuid: "silentbridge-demo",
-      token,
+      token: token,
       speech: audioBase64,
       len: audioLength
     })
   });
-  const data = await res.json();
+  var data = await res.json();
   if (data.err_no !== 0) {
-    return { ok: false, errorMessage: data.err_msg || "baidu-asr-error", errorCode: data.err_no };
+    return { ok: false, errorMessage: data.err_msg || "baidu-asr-error" };
   }
   return { ok: true, text: (data.result && data.result[0]) || "" };
 }
 
-async function handleTranscribe(req) {
-  if (!req || typeof req !== "object") {
+async function handleTranscribe(reqBody) {
+  if (!reqBody || typeof reqBody !== "object") {
     return {
       ok: false,
       errorCode: "invalid-request",
@@ -75,8 +87,7 @@ async function handleTranscribe(req) {
       fallbackAvailable: true
     };
   }
-
-  if (req.source === "manual" && req.manualText) {
+  if (reqBody.source === "manual" && reqBody.manualText) {
     return {
       ok: true,
       provider: "manual",
@@ -84,7 +95,7 @@ async function handleTranscribe(req) {
         {
           id: "manual-" + Date.now(),
           speaker: "对方",
-          text: String(req.manualText),
+          text: String(reqBody.manualText),
           time: nowTime(),
           important: true,
           confidence: 1
@@ -92,8 +103,7 @@ async function handleTranscribe(req) {
       ]
     };
   }
-
-  if (!req.audioBase64 || !req.audioLength) {
+  if (!reqBody.audioBase64 || !reqBody.audioLength) {
     return {
       ok: false,
       errorCode: "no-audio",
@@ -101,9 +111,8 @@ async function handleTranscribe(req) {
       fallbackAvailable: true
     };
   }
-
-  const apiKey = process.env.BAIDU_API_KEY || "";
-  const secretKey = process.env.BAIDU_SECRET_KEY || "";
+  var apiKey = process.env.BAIDU_API_KEY || "";
+  var secretKey = process.env.BAIDU_SECRET_KEY || "";
   if (!apiKey || !secretKey) {
     return {
       ok: false,
@@ -112,9 +121,8 @@ async function handleTranscribe(req) {
       fallbackAvailable: true
     };
   }
-
   try {
-    const result = await baiduAsr(apiKey, secretKey, req.audioBase64, req.audioLength);
+    var result = await baiduAsr(apiKey, secretKey, reqBody.audioBase64, reqBody.audioLength);
     if (!result.ok || !result.text) {
       return {
         ok: false,
@@ -163,43 +171,42 @@ function fallbackAgent(extra) {
   };
 }
 
-async function handleAgentRun(req) {
-  const apiKey = process.env.ZHIPU_API_KEY;
+async function handleAgentRun(reqBody) {
+  var apiKey = process.env.ZHIPU_API_KEY;
   if (!apiKey) return fallbackAgent("未配置 ZHIPU_API_KEY");
 
-  const sceneMap = {
+  var sceneMap = {
     clinic: "医院问诊",
     pharmacy: "药店",
     service: "政务窗口",
     traffic: "交通问路",
     generic: "通用沟通"
   };
-  const scene = sceneMap[(req && req.flowId) || "generic"] || "通用沟通";
-  const lines = Array.isArray(req && req.transcript) ? req.transcript : [];
-  const transcriptText = lines
+  var scene = sceneMap[(reqBody && reqBody.flowId) || "generic"] || "通用沟通";
+  var lines = Array.isArray(reqBody && reqBody.transcript) ? reqBody.transcript : [];
+  var transcriptText = lines
     .map(function (l) {
       return "[" + (l.time || "") + "] " + (l.speaker || "") + "：" + (l.text || "");
     })
     .join("\n");
 
-  const systemPrompt =
+  var systemPrompt =
     "你是 SilentBridge 无声桥 AI 沟通副驾驶。场景：" +
     scene +
     "。把对方的话提炼成 JSON：confirmed/missing/risks/suggestedQuestion/plainSummary/correctedText。confirmed 用“标签：内容”。不要编造，不要医疗诊断。只返回 JSON。";
-  const userPrompt =
+  var userPrompt =
     "对方说的话：\n" +
     transcriptText +
     "\n\n用户想表达：" +
-    ((req && req.userMessage) || "（无）") +
+    ((reqBody && reqBody.userMessage) || "（无）") +
     "\n请返回 JSON。";
 
-  const controller = new AbortController();
-  const timer = setTimeout(function () {
+  var controller = new AbortController();
+  var timer = setTimeout(function () {
     controller.abort();
   }, 12000);
-
   try {
-    const res = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
+    var res = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -216,19 +223,17 @@ async function handleAgentRun(req) {
       }),
       signal: controller.signal
     });
-    if (!res.ok) {
-      throw new Error("zhipu " + res.status + " " + (await res.text()));
-    }
-    const data = await res.json();
-    const content =
+    if (!res.ok) throw new Error("zhipu " + res.status + " " + (await res.text()));
+    var data = await res.json();
+    var content =
       data &&
       data.choices &&
       data.choices[0] &&
       data.choices[0].message &&
       data.choices[0].message.content;
     if (!content) throw new Error("empty zhipu content");
-    const parsed = JSON.parse(content);
-    const out = {
+    var parsed = JSON.parse(content);
+    var out = {
       ok: true,
       provider: "proxy",
       graphName: "silentbridge-glm4-agent",
@@ -267,56 +272,48 @@ async function handleAgentRun(req) {
   }
 }
 
-function getPathname(req) {
-  try {
-    return new URL(req.url).pathname;
-  } catch (e) {
-    return "";
-  }
-}
-
-export default async function handler(req) {
+export default async function handler(req, res) {
   try {
     if (req.method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          "access-control-allow-origin": "*",
-          "access-control-allow-methods": "GET,POST,OPTIONS",
-          "access-control-allow-headers": "Content-Type, Authorization"
-        }
-      });
+      res.statusCode = 204;
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+      res.end();
+      return;
     }
 
-    const pathname = getPathname(req);
+    var url = req.url || "";
+    var pathOnly = url.split("?")[0] || "";
 
     if (
       req.method === "GET" &&
-      (pathname === "/api/health" || pathname === "/health" || pathname === "/api" || pathname === "/")
+      (pathOnly === "/api/health" ||
+        pathOnly === "/health" ||
+        pathOnly === "/api" ||
+        pathOnly === "/" ||
+        pathOnly.endsWith("/health"))
     ) {
-      return json({ ok: true, runtime: "vercel-js", ...envFlags() });
+      return send(res, 200, { ok: true, runtime: "vercel-node-reqres", ...envFlags() });
     }
 
-    if (req.method === "POST" && (pathname === "/api/transcribe" || pathname.endsWith("/transcribe"))) {
-      const body = await req.json();
-      return json(await handleTranscribe(body));
+    if (req.method === "POST" && (pathOnly === "/api/transcribe" || pathOnly.endsWith("/transcribe"))) {
+      var tBody = await readBody(req);
+      return send(res, 200, await handleTranscribe(tBody));
     }
 
-    if (req.method === "POST" && (pathname === "/api/agent/run" || pathname.endsWith("/agent/run"))) {
-      const body = await req.json();
-      return json(await handleAgentRun(body));
+    if (req.method === "POST" && (pathOnly === "/api/agent/run" || pathOnly.endsWith("/agent/run"))) {
+      var aBody = await readBody(req);
+      return send(res, 200, await handleAgentRun(aBody));
     }
 
-    return json({ ok: false, error: "not-found", path: pathname }, 404);
+    return send(res, 404, { ok: false, error: "not-found", path: pathOnly });
   } catch (e) {
     console.error("[api handler]", e);
-    return json(
-      {
-        ok: false,
-        error: "internal-server-error",
-        message: e instanceof Error ? e.message : "unknown"
-      },
-      500
-    );
+    return send(res, 500, {
+      ok: false,
+      error: "internal-server-error",
+      message: e instanceof Error ? e.message : "unknown"
+    });
   }
 }

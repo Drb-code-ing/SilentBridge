@@ -3,12 +3,6 @@
   "buildCommand": "pnpm --filter @silentbridge/web build",
   "outputDirectory": "apps/web/dist",
   "framework": null,
-  "functions": {
-    "api/index.js": {
-      "memory": 512,
-      "maxDuration": 30
-    }
-  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" }
   ]
