@@ -98,7 +98,8 @@ export function resolveListenPrimaryControl(input: {
     };
   }
 
-  if (input.captionsDone && !input.hasAgentResult) {
+  // 有字幕但还在整理
+  if (input.captionsDone && !input.hasAgentResult && isTranscribing) {
     return {
       label: "整理中...",
       action: "busy",
@@ -108,8 +109,19 @@ export function resolveListenPrimaryControl(input: {
     };
   }
 
+  // 已有字幕但未在录音/整理：允许同页重新收听（不必新开沟通）
+  if (input.captionsDone && !input.hasAgentResult) {
+    return {
+      label: "重新收听",
+      action: "start",
+      disabled: false,
+      showAbandon: false,
+      showStopTwin: false
+    };
+  }
+
   return {
-    label: "开始收听",
+    label: input.captionsDone ? "重新收听" : "开始收听",
     action: "start",
     disabled: false,
     showAbandon: false,

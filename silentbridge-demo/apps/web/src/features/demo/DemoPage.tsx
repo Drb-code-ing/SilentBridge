@@ -462,11 +462,41 @@ export function DemoPage({
     setBridgeStep("show");
   };
 
+  /** 改文字：留在收听页，把识别结果填进输入框，清掉摘要以便重新整理 */
   const backToReplyInput = () => {
-    stopSpeechCapture();
+    stopSpeechCapture("cancel");
     setCaptureMode("idle");
     setIsCapturing(false);
+    const textFromCaptions = visibleCaptions
+      .map((line) => line.text)
+      .join(" ")
+      .trim();
+    if (textFromCaptions) {
+      setReplyDraft(textFromCaptions);
+    }
+    setAgentResult(undefined);
+    setProcessedReplyDraft("");
+    setAsrStatus("idle");
+    setFlowNotice("可修改下方文字后点「整理回复」，或点「重新收听」再录一次。");
     setBridgeStep("listen");
+  };
+
+  /** 同页重新收听：清掉本轮字幕/摘要，直接再开麦克风，不必新开沟通 */
+  const restartListening = () => {
+    stopJudgeDemo();
+    stopSpeechCapture("cancel");
+    replyRunIdRef.current += 1;
+    setVisibleCaptions([]);
+    setAgentResult(undefined);
+    setAgentProvider("fallback");
+    setProcessedReplyDraft("");
+    setReplyDraft("");
+    setCaptureMode("idle");
+    setIsCapturing(false);
+    setAsrStatus("idle");
+    setFlowNotice(undefined);
+    setBridgeStep("listen");
+    void handleUseMicrophone();
   };
 
   const beginReplyRun = () => {
@@ -1217,6 +1247,7 @@ export function DemoPage({
           recordingSeconds={recordingSeconds}
           onProcessReply={processReply}
           onStopListening={cancelCurrentRound}
+          onRestartListening={restartListening}
           onStartNew={() => {
             stopJudgeDemo();
             startNewCommunication();

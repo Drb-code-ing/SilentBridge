@@ -2279,6 +2279,16 @@ button:focus-visible {
   width: 100%;
 }
 
+.sb-next-cta-actions {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.sb-next-cta-actions .sb-primary-button,
+.sb-next-cta-actions .sb-secondary-button {
+  width: 100%;
+}
+
 .sb-agent-card-skeleton {
   display: grid;
   gap: 0.72rem;

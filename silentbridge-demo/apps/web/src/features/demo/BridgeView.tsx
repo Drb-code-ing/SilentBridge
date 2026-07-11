@@ -39,6 +39,7 @@ export function BridgeView({
   onStopRecording,
   onProcessReply,
   onStopListening,
+  onRestartListening,
   onStartNew,
   onBackToShow,
   onBackToReply,
@@ -77,6 +78,7 @@ export function BridgeView({
   onStopRecording: () => void;
   onProcessReply: () => void;
   onStopListening: () => void;
+  onRestartListening?: () => void;
   onStartNew: () => void;
   onBackToShow: () => void;
   onBackToReply: () => void;
@@ -132,6 +134,19 @@ export function BridgeView({
       setShowBackupInput(true);
     }
   }, [failureScenario]);
+
+  const handleEditText = () => {
+    setShowBackupInput(true);
+    onBackToReply();
+  };
+
+  const handleRestart = () => {
+    if (onRestartListening) {
+      onRestartListening();
+      return;
+    }
+    onUseMicrophone();
+  };
 
   const listenCopy: Record<AsrStatus, { title: string; helper: string; primary: string }> = {
     idle: {
@@ -225,7 +240,12 @@ export function BridgeView({
         onStopListening();
         return;
       case "start":
-        onUseMicrophone();
+        // 已有字幕/结果时优先走完整重置再收听，避免旧字幕残留
+        if (captionsDone || agentResult) {
+          handleRestart();
+        } else {
+          onUseMicrophone();
+        }
         return;
       case "busy":
       default:
@@ -349,15 +369,18 @@ export function BridgeView({
               {primaryListenLabel}
             </button>
             <div className="sb-bridge-toolstrip" aria-label="听桥操作">
-              <button
-                type="button"
-                className="sb-tool-button"
-                onClick={captionsDone ? onBackToReply : onBackToShow}
-                disabled={isLiveCapture || isRequestingMic}
-              >
-                <span>←</span>
-                <strong>{captionsDone ? "改文字" : "上一步"}</strong>
-              </button>
+              {!isLiveCapture && !isRequestingMic && captionsDone && (
+                <button type="button" className="sb-tool-button" onClick={handleEditText}>
+                  <span>✎</span>
+                  <strong>改文字</strong>
+                </button>
+              )}
+              {!isLiveCapture && !isRequestingMic && !captionsDone && (
+                <button type="button" className="sb-tool-button" onClick={onBackToShow}>
+                  <span>←</span>
+                  <strong>上一步</strong>
+                </button>
+              )}
               {(asrStatus === "error" || asrStatus === "idle") &&
                 visibleCaptions.length === 0 &&
                 !isLiveCapture && (
@@ -366,7 +389,6 @@ export function BridgeView({
                     <strong>演示字幕</strong>
                   </button>
                 )}
-              {/* 录音中：主按钮=停止并识别；次按钮明确为「放弃」避免误取消 ASR */}
               {primaryControl.showAbandon && (
                 <button
                   type="button"
@@ -385,6 +407,13 @@ export function BridgeView({
                 >
                   <span>■</span>
                   <strong>停止</strong>
+                </button>
+              )}
+              {/* 已有结果：同页再收听，不必新开沟通 */}
+              {captionsDone && !isLiveCapture && !isTranscribing && !isRequestingMic && (
+                <button type="button" className="sb-tool-button" onClick={handleRestart}>
+                  <span>🎙</span>
+                  <strong>重新收听</strong>
                 </button>
               )}
               {!isLiveCapture && !isTranscribing && !isRequestingMic && (
@@ -443,10 +472,18 @@ export function BridgeView({
           {captionsDone && agentResult && (
             <div className="sb-next-cta-card">
               <span>可继续</span>
-              <strong>保存本轮，或让对方确认还缺的信息。</strong>
-              <button type="button" className="sb-primary-button" onClick={onSave}>
-                保存这次重点
-              </button>
+              <strong>可保存本轮，或在本页改文字 / 重新收听，不必新开沟通。</strong>
+              <div className="sb-next-cta-actions">
+                <button type="button" className="sb-primary-button" onClick={onSave}>
+                  保存这次重点
+                </button>
+                <button type="button" className="sb-secondary-button" onClick={handleRestart}>
+                  重新收听
+                </button>
+                <button type="button" className="sb-secondary-button" onClick={handleEditText}>
+                  改文字再整理
+                </button>
+              </div>
             </div>
           )}
 

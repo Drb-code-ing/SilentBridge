@@ -54,18 +54,17 @@ describe("resolveListenPrimaryControl", () => {
     expect(state.label).toBe("保存这次重点");
   });
 
-  it("recording mode prefers stop-recognize even if capturing flag briefly false while listening", () => {
+  it("captions without agent allows re-listen on same page", () => {
     const state = resolveListenPrimaryControl({
-      captionsDone: false,
+      captionsDone: true,
       hasAgentResult: false,
-      captureMode: "recording",
+      captureMode: "idle",
       isCapturing: false,
-      asrStatus: "listening"
+      asrStatus: "idle"
     });
-    expect(state.action).toBe("stop-recognize");
-    expect(state.label).toBe("停止并识别");
-    expect(state.showAbandon).toBe(true);
-    expect(state.showStopTwin).toBe(false);
+    expect(state.action).toBe("start");
+    expect(state.label).toBe("重新收听");
+    expect(state.disabled).toBe(false);
   });
 
   it("idle starts listening", () => {
