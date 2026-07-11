@@ -656,18 +656,28 @@ export function DemoPage({
   };
 
   const saveCurrentRecord = () => {
-    clearBridgeProgressDraft();
     const savedRecord = createRecordFromSession({ session: activeSession, flow: activeFlow });
-    const nextRecords = [savedRecord, ...records];
+    if (!savedRecord) {
+      setFlowNotice("还没有可保存的整理结果。请先完成收听/整理，再保存摘要。");
+      setBridgeStep("listen");
+      setActiveTab("bridge");
+      return;
+    }
+
+    clearBridgeProgressDraft();
+    const nextRecords = [savedRecord, ...records.filter((record) => record.id !== savedRecord.id)];
 
     setRecords(nextRecords);
-    persistRecords(nextRecords);
+    const persistResult = persistRecords(nextRecords);
     setSelectedRecordId(savedRecord.id);
     setRecordsMode("detail");
     setJustSavedRecordId(savedRecord.id);
     resetReplyProgress();
     setBridgeStep("show");
     setActiveTab("records");
+    if (!persistResult.ok) {
+      setFlowNotice("摘要已生成，但本地保存失败（浏览器存储不可用）。刷新后可能丢失，请先复制摘要。");
+    }
   };
 
   const handlePickScenario = (scenario: QuickScenario) => {

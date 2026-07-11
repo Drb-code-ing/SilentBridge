@@ -98,6 +98,10 @@ function isValidRecord(value: unknown): value is RecordItem {
 
 export function loadStoredRecords(fallback: RecordItem[]): RecordItem[] {
   try {
+    if (typeof window === "undefined") {
+      return fallback;
+    }
+
     const raw = window.localStorage.getItem(RECORD_STORAGE_KEY);
     if (!raw) {
       return fallback;
@@ -109,26 +113,54 @@ export function loadStoredRecords(fallback: RecordItem[]): RecordItem[] {
     }
 
     const valid = parsed.filter(isValidRecord);
+    // 用户曾保存过但全部校验失败时，不静默覆盖成种子数据
+    if (valid.length === 0 && parsed.length > 0) {
+      console.warn("[session-store] stored records failed validation, using fallback seeds");
+    }
     return valid.length > 0 ? valid : fallback;
   } catch {
     return fallback;
   }
 }
 
-export function persistRecords(records: RecordItem[]) {
+export function persistRecords(records: RecordItem[]): { ok: boolean; error?: string } {
   try {
+    if (typeof window === "undefined") {
+      return { ok: false, error: "no-window" };
+    }
+
     window.localStorage.setItem(RECORD_STORAGE_KEY, JSON.stringify(records));
-  } catch {
-    // localStorage 不可用时静默降级，不影响演示
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "storage-unavailable";
+    console.warn("[session-store] persistRecords failed:", message);
+    return { ok: false, error: message };
   }
+}
+
+export function canCreateRecordFromSession(session: CommunicationSession): boolean {
+  return session.rounds.length > 0 && Boolean(session.rounds[session.rounds.length - 1]?.understanding);
+}
+
+function formatRecordTime(now = new Date()): string {
+  const month = now.getMonth() + 1;
+  const day = now.getDate();
+  const hour = String(now.getHours()).padStart(2, "0");
+  const minute = String(now.getMinutes()).padStart(2, "0");
+  return `${month}/${day} ${hour}:${minute}`;
 }
 
 export function createRecordFromSession(input: {
   session: CommunicationSession;
   flow: DemoFlow;
-}): RecordItem {
+  now?: Date;
+}): RecordItem | null {
+  if (!canCreateRecordFromSession(input.session)) {
+    return null;
+  }
+
   const latestRound = input.session.rounds[input.session.rounds.length - 1];
-  const understanding = latestRound?.understanding ?? input.flow.aiUnderstanding;
+  const understanding = latestRound.understanding!;
 
   const confirmed = understanding.confirmed.filter(Boolean);
   const missing = understanding.missing.filter(Boolean);
@@ -141,21 +173,25 @@ export function createRecordFromSession(input: {
   const isContinuation = Boolean(input.session.continuation);
   const rawParentTitle = input.session.continuation?.parentTitle ?? input.session.sourceLabel;
   const baseParentTitle = rawParentTitle.replace(/\s*[··]\s*(继续追问|追问|一键演示)\s*$/g, "");
-  const cleanedSource = input.session.sourceLabel.replace(/\s*[··]\s*(一键演示|继续追问|追问确认|追问)\s*$/g, "");
+  const cleanedSource = input.session.sourceLabel.replace(
+    /\s*[··]\s*(一键演示|继续追问|追问确认|当场追问|追问)\s*$/g,
+    ""
+  );
   const recordTitle = isContinuation
     ? `${baseParentTitle} · 追问`
     : cleanedSource || input.flow.savedRecord.title;
 
   const keyPoints =
-    confirmed.length > 0
-      ? confirmed.slice(0, 4)
-      : input.flow.savedRecord.keyPoints;
+    confirmed.length > 0 ? confirmed.slice(0, 4) : input.flow.savedRecord.keyPoints;
 
   return {
     ...input.flow.savedRecord,
-    id: `record-${input.session.id}-r${input.session.rounds.length}`,
-    time: "刚刚",
+    // 以会话场景为准，避免模板 flowId 与真实会话不一致
+    flowId: input.session.flowId,
+    id: `record-${input.session.id}-r${input.session.rounds.length}-${Date.now()}`,
+    time: formatRecordTime(input.now),
     title: recordTitle,
+    place: input.flow.savedRecord.place,
     summary: structuredSummary,
     keyPoints,
     nextStep: understanding.suggestedQuestion || input.flow.savedRecord.nextStep,
