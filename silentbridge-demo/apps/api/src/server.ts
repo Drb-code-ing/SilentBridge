@@ -1,10 +1,13 @@
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import { handle } from "hono/vercel";
 import { getServerEnv } from "./env.js";
 import { handleTranscribe } from "./routes/transcribe.js";
 import { handleAgentRun } from "./routes/agent-run.js";
 
+/**
+ * 本地开发用 Node 服务器。
+ * Vercel 生产入口在 /api/index.ts。
+ */
 const app = new Hono();
 
 app.get("/api/health", (c) => {
@@ -34,12 +37,8 @@ app.notFound((c) => {
 
 const PORT = Number(process.env.PORT) || 8787;
 
-// 本地 Node 开发服务器；Vercel 上由 serverless 入口接管
-if (process.env.VERCEL !== "1") {
-  serve({ fetch: app.fetch, port: PORT }, (info) => {
-    console.log(`[silentbridge-api] listening on http://localhost:${info.port}`);
-  });
-}
+serve({ fetch: app.fetch, port: PORT }, (info) => {
+  console.log(`[silentbridge-api] listening on http://localhost:${info.port}`);
+});
 
-// Vercel Serverless / Edge 兼容导出
-export default handle(app);
+export default app;
