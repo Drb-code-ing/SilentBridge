@@ -6,7 +6,7 @@ interface LandingPageProps {
 const COMPARE_ROWS = [
   {
     plain: "只看到一串字幕",
-    bridge: "自动标出用药、禁忌、复诊"
+    bridge: "自动标出诊断、用药、急诊红线"
   },
   {
     plain: "说完就散，容易忘",
@@ -99,22 +99,22 @@ export function LandingPage({ onEnterDemo, onEnterJudgeDemo }: LandingPageProps)
           <div className="relative">
             <div className="rounded-[28px] border-2 border-[#283044] bg-white p-5 shadow-[0_8px_0_#283044]">
               <div className="mb-3 flex items-center justify-between gap-2">
-                <span className="rounded-full bg-[#b9f3d3] px-3 py-1 text-xs font-black">现场 00:42</span>
-                <span className="text-xs font-bold text-[#c45a3a]">高风险已标记</span>
+                <span className="rounded-full bg-[#ffc7b8] px-3 py-1 text-xs font-black">门诊 00:42</span>
+                <span className="text-xs font-bold text-[#c45a3a]">急诊红线已标记</span>
               </div>
               <div className="space-y-3">
                 <div className="rounded-2xl border-2 border-[#283044] bg-[#fff3b8] p-3">
-                  <div className="text-[11px] font-black text-[#3476a8]">店员 · 重点</div>
-                  <p className="mt-1 text-sm font-black leading-snug">饭后吃，一天两次。不要和酒一起服用。</p>
+                  <div className="text-[11px] font-black text-[#3476a8]">医生 · 重点</div>
+                  <p className="mt-1 text-sm font-black leading-snug">咽喉炎，连续服药三天；三天后复诊。</p>
                 </div>
                 <div className="rounded-2xl border-2 border-[#c45a3a] bg-[#fff0e8] p-3">
                   <div className="text-[11px] font-black text-[#c45a3a]">风险提醒</div>
-                  <p className="mt-1 text-sm font-bold leading-snug">药物与酒同服可能带来风险，需明确提醒。</p>
+                  <p className="mt-1 text-sm font-bold leading-snug">胸闷或持续高烧不能等复诊，要马上急诊。</p>
                 </div>
                 <div className="rounded-2xl border-2 border-[#283044] bg-[#283044] p-4 text-white">
                   <div className="text-[11px] font-black text-[#ffd96f]">给对方看的确认问题</div>
                   <p className="mt-2 text-lg font-black leading-tight">
-                    请把药名、用量和不能一起吃的东西写下来，我要保存。
+                    请再写清楚药名、每天几次，以及什么情况要马上去急诊。
                   </p>
                 </div>
               </div>

@@ -1129,7 +1129,9 @@ export function DemoPage({
         <button type="button" className="sb-primary-button sb-stage-cta" onClick={startJudgeDemo}>
           一键演示（无需麦克风）
         </button>
-        <p className="sb-stage-note">右侧手机为真实可交互产品。麦克风不可用时自动演示字幕与规则引擎兜底。</p>
+        <p className="sb-stage-note">
+          默认演示：医院问诊。右侧为真实可交互产品；麦克风不可用时自动字幕 + 规则引擎兜底。
+        </p>
       </aside>
       <div className="sb-device-frame">
         <AppTopBar
