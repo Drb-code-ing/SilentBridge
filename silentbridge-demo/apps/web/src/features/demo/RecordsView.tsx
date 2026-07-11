@@ -1,30 +1,9 @@
 import { useState } from "react";
 import type { RecordItem } from "./demo-content";
 import { filterRecords, type FlowIdFilter } from "./record-filter";
+import { buildShareText } from "./share-record";
 
 export type RecordsMode = "list" | "detail";
-
-function buildShareText(record: RecordItem) {
-  return [
-    `【无声桥沟通记录】${record.title}`,
-    `地点：${record.place}`,
-    `时间：${record.time}`,
-    "",
-    `摘要：${record.summary}`,
-    "",
-    "重点：",
-    ...record.keyPoints.map((point) => `· ${point}`),
-    "",
-    record.aiUnderstanding.risks.length > 0 ? "风险：" : "",
-    ...record.aiUnderstanding.risks.map((risk) => `· ${risk.text}`),
-    "",
-    `下一步：${record.nextStep}`,
-    "",
-    `建议确认：${record.aiUnderstanding.suggestedQuestion}`
-  ]
-    .filter((line) => line !== undefined)
-    .join("\n");
-}
 
 export function RecordsView({
   records,
@@ -52,6 +31,7 @@ export function RecordsView({
   const [searchQuery, setSearchQuery] = useState("");
   const [flowFilter, setFlowFilter] = useState<FlowIdFilter>("all");
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
 
   const flowFilterOptions: Array<{ id: FlowIdFilter; label: string }> = [
     { id: "all", label: "全部" },
@@ -67,12 +47,20 @@ export function RecordsView({
   const showSavedNote = Boolean(justSavedRecordId && justSavedRecordId === selectedRecord.id);
 
   const handleCopyRecord = async () => {
+    const text = buildShareText(selectedRecord);
     try {
-      await navigator.clipboard.writeText(buildShareText(selectedRecord));
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        throw new Error("clipboard unavailable");
+      }
       setCopied(true);
+      setCopyError(false);
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
-      // ignore clipboard failures
+      setCopyError(true);
+      setCopied(false);
+      window.setTimeout(() => setCopyError(false), 2200);
     }
   };
 
@@ -160,7 +148,7 @@ export function RecordsView({
       <section className="sb-record-detail">
         {showSavedNote && (
           <div className="sb-record-saved-note">
-            这次重点已留下。关键信息不会再丢，也可以复制给家人，或继续追问对方确认。
+            这次重点已留下。关键信息不会再丢——可复制给家人，或继续追问补齐缺失项。
           </div>
         )}
         <div className="sb-sticker">重点</div>
@@ -171,6 +159,16 @@ export function RecordsView({
             <span key={point}>{point}</span>
           ))}
         </div>
+        {selectedRecord.aiUnderstanding.confirmed.length > 0 && (
+          <div className="sb-record-ai">
+            <span>已确认</span>
+            <ul>
+              {selectedRecord.aiUnderstanding.confirmed.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className="sb-record-ai">
           <span>小桥理解</span>
           <strong>{selectedRecord.aiUnderstanding.plainSummary}</strong>
@@ -193,14 +191,16 @@ export function RecordsView({
           <span>下一步</span>
           <strong>{selectedRecord.nextStep}</strong>
         </div>
-        <button type="button" className="sb-secondary-button" onClick={handleCopyRecord}>
-          {copied ? "已复制摘要" : "复制整段摘要"}
-        </button>
+        <div className="sb-share-actions">
+          <button type="button" className="sb-secondary-button" onClick={handleCopyRecord}>
+            {copied ? "已复制，可粘贴给家人" : copyError ? "复制失败，请长按选择文字" : "复制整段摘要"}
+          </button>
+        </div>
       </section>
 
       <div className="sb-record-action-bar">
         <button type="button" className="sb-secondary-button" onClick={onOpenHome}>
-          回到首页
+          回首页
         </button>
         <button type="button" className="sb-primary-button" onClick={() => onContinue(selectedRecord)}>
           继续追问

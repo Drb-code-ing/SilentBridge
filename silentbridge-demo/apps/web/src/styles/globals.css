@@ -196,6 +196,104 @@ button:focus-visible {
   box-shadow: 0 3px 0 rgba(40, 48, 68, 0.12);
 }
 
+.sb-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.sb-a11y-chip {
+  min-height: 2.05rem;
+  border: 2px solid rgba(40, 48, 68, 0.14);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #283044;
+  padding: 0.35rem 0.62rem;
+  font-size: 0.72rem;
+  font-weight: 950;
+  box-shadow: 0 2px 0 rgba(40, 48, 68, 0.12);
+}
+
+.sb-a11y-chip.is-active {
+  border-color: #283044;
+  background: #ffd96f;
+}
+
+.sb-share-actions {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.sb-share-actions .sb-secondary-button {
+  width: 100%;
+}
+
+/* Accessibility: text scale */
+.sb-text-large {
+  font-size: 106%;
+}
+
+.sb-text-large .sb-display-card p {
+  font-size: 2.35rem;
+}
+
+.sb-text-large .sb-hero-copy h1,
+.sb-text-large .sb-bridge-head h1,
+.sb-text-large .sb-page-title h1 {
+  font-size: 2.1rem;
+}
+
+.sb-text-xlarge {
+  font-size: 112%;
+}
+
+.sb-text-xlarge .sb-display-card p {
+  font-size: 2.55rem;
+}
+
+.sb-text-xlarge .sb-hero-copy h1,
+.sb-text-xlarge .sb-bridge-head h1,
+.sb-text-xlarge .sb-page-title h1 {
+  font-size: 2.25rem;
+}
+
+.sb-text-xlarge .sb-primary-button,
+.sb-text-xlarge .sb-secondary-button {
+  min-height: 3.4rem;
+  font-size: 1.05rem;
+}
+
+/* Accessibility: high contrast */
+.sb-a11y-contrast .sb-device-frame {
+  background: #fffdf5;
+}
+
+.sb-a11y-contrast .sb-caption-line,
+.sb-a11y-contrast .sb-agent-card,
+.sb-a11y-contrast .sb-record-row,
+.sb-a11y-contrast .sb-home-draft-card,
+.sb-a11y-contrast .sb-phrase-list button {
+  border-color: #283044;
+  border-width: 2px;
+}
+
+.sb-a11y-contrast .sb-kicker,
+.sb-a11y-contrast .sb-panel-head span,
+.sb-a11y-contrast .sb-memory-peek span {
+  color: #1d4f78;
+}
+
+.sb-a11y-contrast .sb-primary-button {
+  background: #d9553a;
+  color: #ffffff;
+}
+
+.sb-a11y-contrast .sb-risk-item--high {
+  border-width: 3px;
+}
+
 .sb-app-content {
   min-height: 0;
   overflow-y: auto;

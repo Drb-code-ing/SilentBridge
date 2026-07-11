@@ -27,6 +27,12 @@ import { RecordsView, type RecordsMode } from "./RecordsView";
 import { BridgeView, type CaptureMode } from "./BridgeView";
 import { type RecoveryOption } from "./failure-recovery";
 import {
+  cycleTextScale,
+  loadA11yPreferences,
+  persistA11yPreferences,
+  type A11yPreferences
+} from "./a11y-preferences";
+import {
   appendSessionRound,
   createCommunicationSession,
   createContinuationSession,
@@ -129,8 +135,13 @@ export function DemoPage({
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [displayFullscreen, setDisplayFullscreen] = useState(false);
   const [isJudgeDemo, setIsJudgeDemo] = useState(autoStartJudgeDemo);
+  const [a11y, setA11y] = useState<A11yPreferences>(() => loadA11yPreferences());
   const speechCaptureRef = useRef<BrowserSpeechCaptureController>();
   const audioRecorderRef = useRef<AudioRecorder | null>(null);
+
+  useEffect(() => {
+    persistA11yPreferences(a11y);
+  }, [a11y]);
 
   const activeFlow = demoFlows[activeFlowId];
   const latestRecord = useMemo(() => records[0], [records]);
@@ -1070,8 +1081,18 @@ export function DemoPage({
     return <PhrasesView activePhraseId={activePhraseId} onUsePhrase={handleUsePhrase} />;
   };
 
+  const shellClass = [
+    "sb-app-shell",
+    displayFullscreen ? "sb-app-shell--fullscreen" : "",
+    a11y.highContrast ? "sb-a11y-contrast" : "",
+    a11y.textScale === "large" ? "sb-text-large" : "",
+    a11y.textScale === "xlarge" ? "sb-text-xlarge" : ""
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <main className={`sb-app-shell${displayFullscreen ? " sb-app-shell--fullscreen" : ""}`}>
+    <main className={shellClass}>
       <aside className="sb-stage-panel" aria-label="产品说明">
         <div className="sb-stage-brand">
           <span className="sb-brand-mark">桥</span>
@@ -1113,6 +1134,13 @@ export function DemoPage({
       <div className="sb-device-frame">
         <AppTopBar
           activeTab={activeTab}
+          a11y={a11y}
+          onCycleTextScale={() =>
+            setA11y((prev) => ({ ...prev, textScale: cycleTextScale(prev.textScale) }))
+          }
+          onToggleHighContrast={() =>
+            setA11y((prev) => ({ ...prev, highContrast: !prev.highContrast }))
+          }
           onGoHome={() => {
             stopJudgeDemo();
             if (onBackHome) {
