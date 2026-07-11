@@ -653,7 +653,8 @@ export function DemoPage({
   const handleUsePhrase = (phrase: Phrase) => {
     setActivePhraseId(phrase.id);
     setJustSavedRecordId(undefined);
-    openBridge(phrase.text, phrase.intent, "generic");
+    const flowId = phrase.flowId ?? inferFlowIdFromText(phrase.text);
+    openBridge(phrase.text, phrase.intent, flowId);
   };
 
   const handleOpenRecord = (id: string) => {
@@ -1041,6 +1042,7 @@ export function DemoPage({
           onToggleDisplayFullscreen={() => setDisplayFullscreen((value) => !value)}
           isJudgeDemo={isJudgeDemo}
           onSkipJudgeDemo={handleSkipJudgeDemo}
+          sessionRounds={activeSession.rounds}
         />
       );
     }

@@ -508,6 +508,78 @@ button:focus-visible {
   font-weight: 950;
 }
 
+.sb-section-hint {
+  margin: -0.15rem 0 0.15rem;
+  color: #6f7787;
+  font-size: 0.82rem;
+  font-weight: 760;
+  line-height: 1.4;
+}
+
+.sb-round-timeline {
+  display: grid;
+  gap: 0.62rem;
+  border: 2px solid #283044;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.88);
+  padding: 0.86rem;
+  box-shadow: 0 4px 0 #283044;
+}
+
+.sb-round-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sb-round-item {
+  display: grid;
+  gap: 0.28rem;
+  border: 1px solid rgba(40, 48, 68, 0.12);
+  border-radius: 14px;
+  background: #f7fbff;
+  padding: 0.68rem 0.75rem;
+}
+
+.sb-round-item__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sb-round-item__head span {
+  color: #3476a8;
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
+.sb-round-item__head em {
+  border-radius: 999px;
+  background: #fff0e8;
+  color: #c45a3a;
+  padding: 0.12rem 0.45rem;
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 950;
+}
+
+.sb-round-item__prompt,
+.sb-round-item__summary {
+  margin: 0;
+  color: #283044;
+  font-size: 0.84rem;
+  font-weight: 820;
+  line-height: 1.4;
+}
+
+.sb-round-item__prompt {
+  color: #536072;
+  font-weight: 750;
+}
+
 .sb-scenario-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

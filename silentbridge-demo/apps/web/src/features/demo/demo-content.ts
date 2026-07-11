@@ -37,6 +37,8 @@ export interface Phrase {
   id: string;
   text: string;
   intent: string;
+  /** 可选：使用后优先绑定的场景 */
+  flowId?: DemoFlowId;
 }
 
 export interface PhrasePack {
@@ -416,10 +418,10 @@ export const phrasePacks: PhrasePack[] = [
     description: "把容易听错的信息单独确认。",
     phrases: [
       { id: "confirm-1", text: "请写下时间、地点和下一步。", intent: "确认三要素" },
-      { id: "confirm-2", text: "请写下药名、用量、一天几次。", intent: "确认用药" },
-      { id: "confirm-clinic", text: "请写下诊断、用药，以及什么情况要马上急诊。", intent: "确认医嘱" },
-      { id: "confirm-3", text: "我需要补交哪些材料？", intent: "确认材料" },
-      { id: "confirm-4", text: "请再确认方向、站台和换乘站。", intent: "确认路线" }
+      { id: "confirm-2", text: "请写下药名、用量、一天几次。", intent: "确认用药", flowId: "pharmacy" },
+      { id: "confirm-clinic", text: "请写下诊断、用药，以及什么情况要马上急诊。", intent: "确认医嘱", flowId: "clinic" },
+      { id: "confirm-3", text: "我需要补交哪些材料？", intent: "确认材料", flowId: "service" },
+      { id: "confirm-4", text: "请再确认方向、站台和换乘站。", intent: "确认路线", flowId: "traffic" }
     ]
   },
   {
@@ -429,7 +431,7 @@ export const phrasePacks: PhrasePack[] = [
     phrases: [
       { id: "urgent-1", text: "这很重要，请帮我写下来，我要保存。", intent: "请求记录" },
       { id: "urgent-2", text: "请稍等，我正在通过字幕阅读。", intent: "请求等待" },
-      { id: "urgent-3", text: "如果有风险或禁忌，请明确告诉我。", intent: "确认风险" }
+      { id: "urgent-3", text: "如果有风险或禁忌，请明确告诉我。", intent: "确认风险", flowId: "clinic" }
     ]
   }
 ];

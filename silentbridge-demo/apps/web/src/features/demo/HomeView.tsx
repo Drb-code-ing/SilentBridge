@@ -28,47 +28,27 @@ export function HomeView({
           <div className="sb-speech-bubble">我来帮你把话递过去</div>
         </div>
         <div className="sb-hero-copy">
-          <p className="sb-kicker">从一次现场沟通开始</p>
+          <p className="sb-kicker">现场沟通，三步完成</p>
           <h1>听不清时，先把手机递过去。</h1>
-          <p>无声桥会先展示一句开场白，再接住对方说的话，最后留下重点与风险。</p>
+          <p>先选场景或改开场白，再出示给对方；对方说完后整理重点，最后保存下来。</p>
         </div>
         {onStartJudgeDemo && (
           <button type="button" className="sb-home-judge-button" onClick={onStartJudgeDemo}>
-            <span>60 秒看懂</span>
+            <span>给评委 / 第一次体验</span>
             <strong>一键演示（无需麦克风）</strong>
-            <small>自动跑通：出示 → 字幕 → 风险 → 确认 → 保存</small>
+            <small>医院问诊：出示 → 字幕 → 风险 → 确认 → 保存</small>
           </button>
         )}
-        <button type="button" className="sb-home-start-button" onClick={onStart}>
-          <span>真实体验</span>
-          <strong>把手机递给对方</strong>
-          <small>展示开场白 &gt; 收听转文字 &gt; 保存重点</small>
-        </button>
-      </section>
-
-      <section className="sb-home-draft-card">
-        <div className="sb-panel-head">
-          <span>给对方看的第一句话</span>
-          <strong>可以直接用，也可以临时改。</strong>
-        </div>
-        <label className="sb-input-card sb-input-card--home">
-          <span>我想让对方先看到</span>
-          <textarea
-            value={messageDraft}
-            onChange={(event) => onMessageDraftChange(event.target.value)}
-            maxLength={120}
-            rows={3}
-          />
-        </label>
       </section>
 
       <section className="sb-section">
         <div className="sb-section-title">
-          <h2>现在可能遇到</h2>
+          <h2>真实使用：先选场景</h2>
           <button type="button" className="sb-section-tool" onClick={onOpenPhrases}>
             找一句话
           </button>
         </div>
+        <p className="sb-section-hint">点场景会带上合适的开场白，直接进入沟通。</p>
         <div className="sb-scenario-row" aria-label="常用场景">
           {quickScenarios.map((scenario) => (
             <button
@@ -82,6 +62,27 @@ export function HomeView({
             </button>
           ))}
         </div>
+      </section>
+
+      <section className="sb-home-draft-card">
+        <div className="sb-panel-head">
+          <span>或者自己写开场白</span>
+          <strong>适合临时沟通，不限定场景。</strong>
+        </div>
+        <label className="sb-input-card sb-input-card--home">
+          <span>我想让对方先看到</span>
+          <textarea
+            value={messageDraft}
+            onChange={(event) => onMessageDraftChange(event.target.value)}
+            maxLength={120}
+            rows={3}
+          />
+        </label>
+        <button type="button" className="sb-home-start-button" onClick={onStart}>
+          <span>开始这次沟通</span>
+          <strong>出示开场白并进入收听</strong>
+          <small>系统会尽量识别场景，也可稍后手动输入对方的话</small>
+        </button>
       </section>
 
       <button type="button" className="sb-memory-peek" onClick={() => onOpenRecord(latestRecord.id)}>

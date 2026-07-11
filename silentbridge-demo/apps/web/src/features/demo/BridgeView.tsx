@@ -13,6 +13,8 @@ import { ProgressDots } from "./ProgressDots";
 import { DisplayCard } from "./DisplayCard";
 import { CaptionPanel } from "./CaptionPanel";
 import { AgentInsightCard } from "./AgentInsightCard";
+import { RoundTimeline } from "./RoundTimeline";
+import type { SessionRound } from "./session-types";
 
 export type CaptureMode = "idle" | "fallback-demo" | "browser-speech" | "recording";
 
@@ -52,7 +54,8 @@ export function BridgeView({
   displayFullscreen = false,
   onToggleDisplayFullscreen,
   isJudgeDemo = false,
-  onSkipJudgeDemo
+  onSkipJudgeDemo,
+  sessionRounds = []
 }: {
   step: BridgeStep;
   message: string;
@@ -90,6 +93,7 @@ export function BridgeView({
   onToggleDisplayFullscreen?: () => void;
   isJudgeDemo?: boolean;
   onSkipJudgeDemo?: () => void;
+  sessionRounds?: SessionRound[];
 }) {
   const [showBackupInput, setShowBackupInput] = useState(false);
   const agentCardRef = useRef<HTMLDivElement>(null);
@@ -230,6 +234,8 @@ export function BridgeView({
             : "这次会接着上一条记录问，不用重新解释。"}
         </div>
       )}
+
+      {!isJudgeDemo && sessionRounds.length > 0 && <RoundTimeline rounds={sessionRounds} />}
 
       {step === "show" && (
         <section className="sb-bridge-stage">
