@@ -63,29 +63,48 @@ export class AudioRecorder {
     await stopped;
     this.recording = false;
 
-    console.log("[AudioRecorder] chunks:", this.chunks.length, "total size:", this.chunks.reduce((a, c) => a + c.size, 0));
+    console.log(
+      "[AudioRecorder] chunks:",
+      this.chunks.length,
+      "total size:",
+      this.chunks.reduce((a, c) => a + c.size, 0)
+    );
 
-    if (this.chunks.length === 0) {
+    // 立刻释放麦克风，不要等转码完成
+    const chunks = [...this.chunks];
+    const mimeType = this.mimeType;
+    this.releaseTracksOnly();
+
+    if (chunks.length === 0) {
       console.log("[AudioRecorder] no audio data captured");
       this.cleanup();
       return null;
     }
 
-    const blob = new Blob(this.chunks, { type: this.mimeType });
+    const blob = new Blob(chunks, { type: mimeType });
     console.log("[AudioRecorder] blob size:", blob.size, "type:", blob.type);
 
-    const wavBuffer = await this.convertToWav(blob);
-    if (!wavBuffer) {
-      console.log("[AudioRecorder] failed to convert to WAV");
+    try {
+      const wavBuffer = await this.convertToWav(blob);
+      if (!wavBuffer) {
+        console.log("[AudioRecorder] failed to convert to WAV");
+        this.cleanup();
+        return null;
+      }
+
+      const base64 = arrayBufferToBase64(wavBuffer);
+      console.log("[AudioRecorder] WAV size:", wavBuffer.byteLength, "bytes");
+      this.cleanup();
+      return {
+        blob: new Blob([wavBuffer], { type: "audio/wav" }),
+        base64,
+        length: wavBuffer.byteLength
+      };
+    } catch (err) {
+      console.error("[AudioRecorder] stop convert failed:", err);
       this.cleanup();
       return null;
     }
-
-    const base64 = arrayBufferToBase64(wavBuffer);
-    console.log("[AudioRecorder] WAV size:", wavBuffer.byteLength, "bytes");
-
-    this.cleanup();
-    return { blob: new Blob([wavBuffer], { type: "audio/wav" }), base64, length: wavBuffer.byteLength };
   }
 
   cancel(): void {
@@ -105,7 +124,7 @@ export class AudioRecorder {
       "audio/webm;codecs=opus",
       "audio/webm",
       "audio/ogg;codecs=opus",
-      "audio/mp4",
+      "audio/mp4"
     ];
 
     for (const type of candidates) {
@@ -122,17 +141,38 @@ export class AudioRecorder {
       const arrayBuffer = await blob.arrayBuffer();
 
       const AudioContextCtor =
-        window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const decodeCtx = new AudioContextCtor();
 
-      const audioBuffer = await decodeCtx.decodeAudioData(arrayBuffer);
-      console.log("[AudioRecorder] decoded:", audioBuffer.sampleRate, "Hz,", audioBuffer.numberOfChannels, "ch,", audioBuffer.duration.toFixed(2), "s");
+      // 转码超时保护，避免 decode 卡住导致 UI 永久「整理中」
+      const audioBuffer = (await Promise.race([
+        decodeCtx.decodeAudioData(arrayBuffer.slice(0)),
+        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 8000))
+      ])) as AudioBuffer | null;
+
+      if (!audioBuffer) {
+        console.log("[AudioRecorder] decodeAudioData timed out or failed");
+        decodeCtx.close().catch(() => {});
+        return null;
+      }
+
+      console.log(
+        "[AudioRecorder] decoded:",
+        audioBuffer.sampleRate,
+        "Hz,",
+        audioBuffer.numberOfChannels,
+        "ch,",
+        audioBuffer.duration.toFixed(2),
+        "s"
+      );
 
       const channelData = audioBuffer.getChannelData(0);
 
-      const resampled = audioBuffer.sampleRate !== TARGET_SAMPLE_RATE
-        ? downsample(channelData, audioBuffer.sampleRate, TARGET_SAMPLE_RATE)
-        : channelData;
+      const resampled =
+        audioBuffer.sampleRate !== TARGET_SAMPLE_RATE
+          ? downsample(channelData, audioBuffer.sampleRate, TARGET_SAMPLE_RATE)
+          : channelData;
 
       const wavBuffer = encodeWav(resampled, TARGET_SAMPLE_RATE);
 
@@ -144,11 +184,15 @@ export class AudioRecorder {
     }
   }
 
-  private cleanup(): void {
+  private releaseTracksOnly(): void {
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach((t) => t.stop());
       this.mediaStream = null;
     }
+  }
+
+  private cleanup(): void {
+    this.releaseTracksOnly();
     this.mediaRecorder = null;
     this.chunks = [];
   }

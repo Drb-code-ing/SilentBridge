@@ -15,6 +15,7 @@ import { CaptionPanel } from "./CaptionPanel";
 import { AgentInsightCard } from "./AgentInsightCard";
 import { RoundTimeline } from "./RoundTimeline";
 import type { SessionRound } from "./session-types";
+import { resolveListenPrimaryControl } from "./listen-controls";
 
 export type CaptureMode = "idle" | "fallback-demo" | "browser-speech" | "recording";
 
@@ -177,9 +178,14 @@ export function BridgeView({
   const isLiveCapture = isRecording || isDemoCapturing || isBrowserCapturing;
   const isTranscribing = asrStatus === "transcribing" && !isLiveCapture;
   const isRequestingMic = asrStatus === "requesting";
-  // 收听中必须始终有明确停止边界（主按钮），不能只剩小工具条
-  const canStopListening =
-    isLiveCapture || isRequestingMic || asrStatus === "listening" || asrStatus === "fallback";
+
+  const primaryControl = resolveListenPrimaryControl({
+    captionsDone,
+    hasAgentResult: Boolean(agentResult),
+    captureMode,
+    isCapturing,
+    asrStatus
+  });
 
   const listenTitle = isRecording
     ? "正在录音"
@@ -194,45 +200,38 @@ export function BridgeView({
             : activeListenCopy.title;
 
   const listenHelper = isRecording
-    ? "对方说完后点「停止并识别」。也可以随时停止，再改用手动输入。"
+    ? "对方说完后点「停止并识别」——会识别语音并整理重点。若只想放弃，点右侧「放弃」。"
     : isDemoCapturing
-      ? "正在逐条生成演示字幕。可随时点「停止」中断。"
+      ? "正在逐条生成演示字幕。可随时点「停止演示」中断。"
       : isBrowserCapturing || asrStatus === "listening"
         ? "请把手机靠近对方。说完后点「停止收听」。"
         : isTranscribing
-          ? "正在整理文字。可点「取消」中断本轮。"
+          ? "正在识别/整理文字。可点「取消整理」中断本轮。"
           : isRequestingMic
             ? "请在浏览器弹窗中允许麦克风；也可取消后改用手动输入。"
             : activeListenCopy.helper;
 
-  let primaryListenLabel = activeListenCopy.primary;
-  let primaryListenAction: () => void = onUseMicrophone;
-  let primaryDisabled = false;
-
-  if (captionsDone && agentResult) {
-    primaryListenLabel = "保存这次重点";
-    primaryListenAction = onSave;
-  } else if (isRecording) {
-    primaryListenLabel = "停止并识别";
-    primaryListenAction = onStopRecording;
-  } else if (canStopListening) {
-    primaryListenLabel = isDemoCapturing ? "停止演示" : "停止收听";
-    primaryListenAction = onStopListening;
-  } else if (isTranscribing) {
-    primaryListenLabel = "取消整理";
-    primaryListenAction = onStopListening;
-  } else if (asrStatus === "error") {
-    primaryListenLabel = "重新收听";
-    primaryListenAction = onUseMicrophone;
-  } else if (!captionsDone) {
-    primaryListenLabel = "开始收听";
-    primaryListenAction = onUseMicrophone;
-  } else {
-    // 有字幕但 AI 还没出结果
-    primaryListenLabel = "整理中...";
-    primaryListenAction = onStopListening;
-    primaryDisabled = !agentResult;
-  }
+  const primaryListenLabel = primaryControl.label;
+  const primaryDisabled = primaryControl.disabled;
+  const primaryListenAction = () => {
+    switch (primaryControl.action) {
+      case "save":
+        onSave();
+        return;
+      case "stop-recognize":
+        onStopRecording();
+        return;
+      case "stop-cancel":
+        onStopListening();
+        return;
+      case "start":
+        onUseMicrophone();
+        return;
+      case "busy":
+      default:
+        return;
+    }
+  };
 
   if (displayFullscreen) {
     return (
@@ -334,7 +333,8 @@ export function BridgeView({
             <button
               type="button"
               className={
-                canStopListening || isTranscribing
+                primaryControl.action === "stop-recognize" ||
+                primaryControl.action === "stop-cancel"
                   ? "sb-primary-button sb-primary-button--stop"
                   : "sb-primary-button"
               }
@@ -354,14 +354,31 @@ export function BridgeView({
                 <span>←</span>
                 <strong>{captionsDone ? "改文字" : "上一步"}</strong>
               </button>
-              {(asrStatus === "error" || asrStatus === "idle") && visibleCaptions.length === 0 && !isLiveCapture && (
-                <button type="button" className="sb-tool-button" onClick={onStartFallbackDemo}>
-                  <span>演</span>
-                  <strong>演示字幕</strong>
+              {(asrStatus === "error" || asrStatus === "idle") &&
+                visibleCaptions.length === 0 &&
+                !isLiveCapture && (
+                  <button type="button" className="sb-tool-button" onClick={onStartFallbackDemo}>
+                    <span>演</span>
+                    <strong>演示字幕</strong>
+                  </button>
+                )}
+              {/* 录音中：主按钮=停止并识别；次按钮明确为「放弃」避免误取消 ASR */}
+              {primaryControl.showAbandon && (
+                <button
+                  type="button"
+                  className="sb-tool-button sb-tool-button--danger"
+                  onClick={onStopListening}
+                >
+                  <span>×</span>
+                  <strong>放弃</strong>
                 </button>
               )}
-              {(canStopListening || isTranscribing) && (
-                <button type="button" className="sb-tool-button sb-tool-button--danger" onClick={onStopListening}>
+              {primaryControl.showStopTwin && (
+                <button
+                  type="button"
+                  className="sb-tool-button sb-tool-button--danger"
+                  onClick={onStopListening}
+                >
                   <span>■</span>
                   <strong>停止</strong>
                 </button>

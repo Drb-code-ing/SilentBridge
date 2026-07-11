@@ -260,17 +260,10 @@ export function DemoPage({
 
       void (async () => {
         try {
-          await new Promise((resolve) => window.setTimeout(resolve, 520));
+          await new Promise((resolve) => window.setTimeout(resolve, 280));
 
-          const transcribeResponse = await transcribeSession({
-            request: {
-              sessionId: activeSession.id,
-              flowId: activeFlowId,
-              source: "fallback"
-            },
-            fallbackFlow: activeFlow
-          });
-          const transcript = transcribeResponse.transcript;
+          // 演示路径：字幕已是场景预设，直接本地整理，避免远程 LLM 卡住
+          const transcript = animatedTranscript;
           if (replyRunIdRef.current !== runId) {
             return;
           }
@@ -285,7 +278,8 @@ export function DemoPage({
               userMessage: displayMessage,
               round: activeSession.rounds.length + 1
             },
-            fallbackFlow: activeFlow
+            fallbackFlow: activeFlow,
+            preferLocal: true
           });
           if (replyRunIdRef.current !== runId) {
             return;
@@ -394,9 +388,13 @@ export function DemoPage({
     processedReplyDraft
   ]);
 
-  const stopSpeechCapture = () => {
+  const stopSpeechCapture = (mode: "cancel" | "soft" = "cancel") => {
     speechCaptureRef.current?.abort();
     speechCaptureRef.current = undefined;
+    // soft：仅清引用，不主动 cancel 录音器（给 stop-recognize 用，避免与 stop() 竞态）
+    if (mode === "soft") {
+      return;
+    }
     if (audioRecorderRef.current) {
       audioRecorderRef.current.cancel();
       audioRecorderRef.current = null;
@@ -745,61 +743,185 @@ export function DemoPage({
   };
 
   const handleStopRecording = async () => {
-    console.log("[DemoPage] handleStopRecording called");
     const recorder = audioRecorderRef.current;
-    console.log("[DemoPage] recorder:", !!recorder, "isRecording:", recorder?.isRecording());
-    if (!recorder || !recorder.isRecording()) {
-      console.log("[DemoPage] early return: recorder null or not recording");
-      return;
-    }
-
-    const runId = replyRunIdRef.current;
-    console.log("[DemoPage] calling recorder.stop()...");
-    const result = await recorder.stop();
-    console.log("[DemoPage] recorder.stop() returned:", !!result);
-    audioRecorderRef.current = null;
-    setIsCapturing(false);
-
-    if (!result) {
+    if (!recorder) {
+      setIsCapturing(false);
       setCaptureMode("idle");
       setAsrStatus("error");
-      setFlowNotice("录音失败，请重试或手动输入。");
+      setFlowNotice("录音器已丢失，请重新收听或手动输入。");
       return;
     }
 
+    // 先摘掉 ref，避免 abandon/cancel 与 stop() 竞态把麦克风留住或打断识别
+    audioRecorderRef.current = null;
+    const runId = replyRunIdRef.current;
+
+    setIsCapturing(false);
     setCaptureMode("idle");
     setAsrStatus("transcribing");
-    setFlowNotice("正在识别语音，请稍候...");
+    setFlowNotice("正在停止录音并识别语音…");
+
+    let result: { blob: Blob; base64: string; length: number } | null = null;
+    try {
+      result = recorder.isRecording() ? await recorder.stop() : null;
+    } catch (err) {
+      try {
+        recorder.cancel();
+      } catch {
+        // ignore
+      }
+      if (replyRunIdRef.current !== runId) return;
+      setAsrStatus("error");
+      setFlowNotice(
+        `停止录音失败（${err instanceof Error ? err.message : "stop-failed"}）。请重试或手动输入。`
+      );
+      return;
+    }
+
+    if (replyRunIdRef.current !== runId) {
+      return;
+    }
+
+    if (!result) {
+      // 录音数据无效时仍给出场景字幕+重点，避免“停了却什么都没有”
+      const fallbackTranscript = activeFlow.captions;
+      setVisibleCaptions(fallbackTranscript);
+      setReplyDraft(fallbackTranscript.map((line) => line.text).join(" "));
+      try {
+        const response = await runSessionAgent({
+          request: {
+            sessionId: activeSession.id,
+            flowId: activeFlowId,
+            transcript: fallbackTranscript,
+            userMessage: displayMessage,
+            round: activeSession.rounds.length + 1
+          },
+          fallbackFlow: activeFlow
+        });
+        if (replyRunIdRef.current !== runId) return;
+        const agentRunResult: AgentRunResult = {
+          graphName: response.graphName,
+          visitedNodes: response.visitedNodes as AgentRunResult["visitedNodes"],
+          understanding: response.understanding
+        };
+        setAgentResult(agentRunResult);
+        setAgentProvider(response.provider);
+        setAsrStatus("done");
+        setProcessedReplyDraft(fallbackTranscript.map((line) => line.text).join(" "));
+        setActiveSession((prevSession) =>
+          appendSessionRound({
+            session: prevSession,
+            prompt: displayMessage,
+            transcript: fallbackTranscript,
+            agentResult: agentRunResult,
+            provider: "fallback"
+          })
+        );
+        setFlowNotice("未采到有效录音。已用当前场景示例生成字幕和重点，可手动输入真实内容后点「整理回复」。");
+      } catch {
+        if (replyRunIdRef.current !== runId) return;
+        const fallbackResult = runDemoAgent({ flow: activeFlow, transcript: fallbackTranscript });
+        setAgentResult(fallbackResult);
+        setAgentProvider("fallback");
+        setAsrStatus("done");
+        setActiveSession((prevSession) =>
+          appendSessionRound({
+            session: prevSession,
+            prompt: displayMessage,
+            transcript: fallbackTranscript,
+            agentResult: fallbackResult,
+            provider: "fallback"
+          })
+        );
+        setFlowNotice("未采到有效录音。已用本地规则整理场景重点。");
+      }
+      return;
+    }
+
+    setFlowNotice("正在识别语音并整理重点…");
 
     const asrResult = await transcribeAudio({
       sessionId: activeSession.id,
       flowId: activeFlowId,
       audioBase64: result.base64,
-      audioLength: result.length,
+      audioLength: result.length
     });
 
     if (replyRunIdRef.current !== runId) {
       return;
     }
 
-    if (!asrResult.ok) {
-      setAsrStatus("error");
-      setFlowNotice(`语音识别失败：${asrResult.error}。请重试或手动输入对方说的话。`);
+    // ASR 失败时降级：用当前场景字幕 + agent，保证停止后仍有字幕和重点
+    if (!asrResult.ok || asrResult.transcript.length === 0) {
+      const reason = !asrResult.ok ? asrResult.error : "empty-transcript";
+      const fallbackTranscript = activeFlow.captions;
+      setVisibleCaptions(fallbackTranscript);
+      setReplyDraft(fallbackTranscript.map((line) => line.text).join(" "));
+
+      try {
+        const response = await runSessionAgent({
+          request: {
+            sessionId: activeSession.id,
+            flowId: activeFlowId,
+            transcript: fallbackTranscript,
+            userMessage: displayMessage,
+            round: activeSession.rounds.length + 1
+          },
+          fallbackFlow: activeFlow,
+          preferLocal: true
+        });
+        if (replyRunIdRef.current !== runId) return;
+
+        const agentRunResult: AgentRunResult = {
+          graphName: response.graphName,
+          visitedNodes: response.visitedNodes as AgentRunResult["visitedNodes"],
+          understanding: response.understanding
+        };
+        setAgentResult(agentRunResult);
+        setAgentProvider(response.provider);
+        setAsrStatus("done");
+        setProcessedReplyDraft(fallbackTranscript.map((line) => line.text).join(" "));
+        setActiveSession((prevSession) =>
+          appendSessionRound({
+            session: prevSession,
+            prompt: displayMessage,
+            transcript: fallbackTranscript,
+            agentResult: agentRunResult,
+            provider: "fallback"
+          })
+        );
+        setFlowNotice(
+          `实时识别不可用（${reason}）。已用当前场景示例生成字幕和重点，可改手动输入真实内容后点「整理回复」。`
+        );
+      } catch {
+        if (replyRunIdRef.current !== runId) return;
+        const fallbackResult = runDemoAgent({
+          flow: activeFlow,
+          transcript: fallbackTranscript
+        });
+        setAgentResult(fallbackResult);
+        setAgentProvider("fallback");
+        setAsrStatus("done");
+        setActiveSession((prevSession) =>
+          appendSessionRound({
+            session: prevSession,
+            prompt: displayMessage,
+            transcript: fallbackTranscript,
+            agentResult: fallbackResult,
+            provider: "fallback"
+          })
+        );
+        setFlowNotice(
+          `实时识别不可用（${reason}）。已用本地规则整理场景重点。可手动输入真实内容。`
+        );
+      }
       return;
     }
 
     const transcript = asrResult.transcript;
-    if (transcript.length === 0) {
-      setAsrStatus("error");
-      setFlowNotice("没有识别到清晰语音。请重试或手动输入对方说的话。");
-      return;
-    }
-
-    setAsrStatus("transcribing");
     setVisibleCaptions(transcript);
     const recognizedText = transcript.map((line) => line.text).join(" ").trim();
     setReplyDraft(recognizedText);
-    setFlowNotice(undefined);
 
     try {
       const response = await runSessionAgent({
@@ -827,10 +949,15 @@ export function DemoPage({
       setAgentProvider(response.provider);
       setAsrStatus("done");
       setProcessedReplyDraft(recognizedText);
+      setFlowNotice(undefined);
 
-      if (response.correctedText && visibleCaptions.length > 0) {
-        const latestId = visibleCaptions[visibleCaptions.length - 1].id;
-        setVisibleCaptions((prev) => applyCaptionCorrection(prev, response.correctedText, latestId));
+      if (response.correctedText) {
+        const latestId = transcript[transcript.length - 1]?.id;
+        if (latestId) {
+          setVisibleCaptions((prev) =>
+            applyCaptionCorrection(prev, response.correctedText, latestId)
+          );
+        }
       }
 
       setActiveSession((prevSession) =>
@@ -847,8 +974,21 @@ export function DemoPage({
         return;
       }
 
-      setAsrStatus("error");
-      setFlowNotice("语音已转成文字，但 AI 整理失败。可以点整理回复或重新收听。");
+      const fallbackResult = runDemoAgent({ flow: activeFlow, transcript });
+      setAgentResult(fallbackResult);
+      setAgentProvider("fallback");
+      setAsrStatus("done");
+      setProcessedReplyDraft(recognizedText);
+      setActiveSession((prevSession) =>
+        appendSessionRound({
+          session: prevSession,
+          prompt: displayMessage,
+          transcript,
+          agentResult: fallbackResult,
+          provider: "fallback"
+        })
+      );
+      setFlowNotice("语音已转成文字；AI 服务异常，已用本地规则整理重点。");
     }
   };
 
@@ -928,14 +1068,17 @@ export function DemoPage({
   };
 
   const cancelCurrentRound = () => {
+    // 显式放弃：打断进行中的识别/整理，并释放麦克风
     replyRunIdRef.current += 1;
-    stopSpeechCapture();
+    stopSpeechCapture("cancel");
     setCaptureMode("idle");
     setIsCapturing(false);
-    // 停止后保留已出现的字幕，方便改走手动；若还没有任何字幕则回到可重新开始
     setAsrStatus((prev) => (prev === "done" ? "done" : "idle"));
-    setAgentResult(undefined);
-    setFlowNotice("已停止。可重新收听、演示字幕，或展开手动输入。");
+    // 仅在没有可用字幕时清掉 agent；有字幕则保留，方便改手动整理
+    if (visibleCaptions.length === 0) {
+      setAgentResult(undefined);
+    }
+    setFlowNotice("已停止并释放麦克风。可重新收听、演示字幕，或展开手动输入。");
     setBridgeStep("listen");
   };
 
