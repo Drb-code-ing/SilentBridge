@@ -22,11 +22,12 @@
 |---|---|
 | **Root Directory** | `silentbridge-demo`（点 Edit 选中该目录） |
 | Framework Preset | Other |
-| Build Command | `pnpm build`（或留空，读 vercel.json） |
+| Build Command | 可留空（用 vercel.json）或 `pnpm --filter @silentbridge/web build` |
 | Output Directory | `apps/web/dist` |
-| Install Command | `pnpm install --no-frozen-lockfile` |
+| Install Command | 可留空或 `pnpm install --no-frozen-lockfile` |
 
-> 关键：**Root Directory 必须是 `silentbridge-demo`**，不要用仓库根目录。
+> **关键：Root Directory 必须是 `silentbridge-demo`**，不要用仓库根目录。  
+> 仓库根目录没有 `package.json`，Root 设错会在 Clone 后立刻失败。
 
 ### 2. 环境变量（可选但推荐）
 

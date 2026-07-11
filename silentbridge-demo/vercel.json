@@ -1,29 +1,9 @@
 {
-  "version": 2,
   "installCommand": "pnpm install --no-frozen-lockfile",
-  "buildCommand": "pnpm build",
+  "buildCommand": "pnpm --filter @silentbridge/web build",
   "outputDirectory": "apps/web/dist",
   "framework": null,
-  "functions": {
-    "apps/api/src/server.ts": {
-      "memory": 512,
-      "maxDuration": 30
-    }
-  },
   "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/apps/api/src/server.ts"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
-      ]
-    }
+    { "source": "/api/(.*)", "destination": "/api" }
   ]
 }
