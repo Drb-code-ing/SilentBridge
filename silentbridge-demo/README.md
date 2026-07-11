@@ -9,7 +9,8 @@
 
 ## 在线体验
 
-> 部署完成后填入：`https://<your-project>.vercel.app`  
+> 在线体验：`https://silent-bridge-sigma.vercel.app`  
+> 健康检查：`https://silent-bridge-sigma.vercel.app/api/health`  
 > 部署步骤见 [DEPLOY.md](./DEPLOY.md)
 
 本地开发：
