@@ -45,24 +45,7 @@
 
 ### 界面展示
 
-（发帖时请按顺序上传下面 5 张图）
-
-1. 产品首页与场景入口  
-   `docs/live-demo/02-home.png`
-
-2. 出示开场白  
-   `docs/live-demo/05-judge-show.png`
-
-3. 字幕 + AI 重点 / 风险  
-   `docs/live-demo/07-judge-ai-peak.png`
-
-4. 保存摘要  
-   `docs/live-demo/09-saved.png`
-
-5. TRAE 开发过程截图（三选一即可，建议都备着）  
-   - `silentbridge-demo/docs/evidence/assets/01-trae-task-plan.png`  
-   - `silentbridge-demo/docs/evidence/assets/15-trae-phase09-plan-execution.png`  
-   - `silentbridge-demo/docs/evidence/assets/26-trae-phase15-asr-plan-execution.png`
+（依次插入：产品首页、出示开场白、AI 重点与风险、保存摘要）
 
 ---
 
@@ -141,34 +124,23 @@ https://silent-bridge-sigma.vercel.app/api/health
 
 开发中用到 TRAE Agent / SOLO 任务模式、多文件重构、终端执行与预览回修；并结合前端界面生成、无障碍可读性检查、测试回归与文档整理等能力，以及浏览器端到端验收，保证功能可跑、失败可恢复、证据链完整。
 
-### 关键 Session ID（节选 4 个）
+### 关键 Session ID
 
 1. **Phase 01 项目骨架**  
-`.986734319122016:eac697c931dfbe99c16d379cac88459a_6a30e64c9681639827a47889.6a328c3397a2b4d372b261c5.6a328c3210ff01e478e64676:Trae CN.T(2026/6/17 19:59:47)`  
-对应：`01-trae-task-plan.png` / `02-trae-install-process.png` / `03-trae-file-tree.png`
+`.986734319122016:eac697c931dfbe99c16d379cac88459a_6a30e64c9681639827a47889.6a328c3397a2b4d372b261c5.6a328c3210ff01e478e64676:Trae CN.T(2026/6/17 19:59:47)`
 
 2. **Phase 09 逻辑闭环**  
-`.986734319122016:e1fa62390e146e03d934712899d7fde2_6a30e64c9681639827a47889.6a3409f1f5aca5c0831b71e9.6a3409f0a18af993389b334b:Trae CN.T(2026/6/18 23:08:33)`  
-对应：`15-trae-phase09-plan-execution.png` / `16-trae-phase09-completion-summary.png`
+`.986734319122016:e1fa62390e146e03d934712899d7fde2_6a30e64c9681639827a47889.6a3409f1f5aca5c0831b71e9.6a3409f0a18af993389b334b:Trae CN.T(2026/6/18 23:08:33)`
 
 3. **Phase 10 AI 理解环**  
-`.986734319122016:62a2b88720a19caa5fdfb4ad21bfa7a8_6a30e64c9681639827a47889.6a3422b7f5aca5c0831b7230.6a3422b6a18af993389b334d:Trae CN.T(2026/6/19 00:54:15)`  
-对应：`18-trae-phase10-plan-execution.png` / `19-trae-phase10-completion-summary.png`
+`.986734319122016:62a2b88720a19caa5fdfb4ad21bfa7a8_6a30e64c9681639827a47889.6a3422b7f5aca5c0831b7230.6a3422b6a18af993389b334d:Trae CN.T(2026/6/19 00:54:15)`
 
 4. **Phase 15 浏览器 ASR 试点**  
-`.986734319122016:3646889a69aede8c8704f2c77f68364f_6a30e64c9681639827a47889.6a367c3273403ce66b37a3e0.6a367c306164c7de42339100:Trae CN.T(2026/6/20 19:40:34)`  
-对应：`26-trae-phase15-asr-plan-execution.png` / `27-trae-phase15-asr-code-change.png` / `28-trae-phase15-asr-review-summary.png`
+`.986734319122016:3646889a69aede8c8704f2c77f68364f_6a30e64c9681639827a47889.6a367c3273403ce66b37a3e0.6a367c306164c7de42339100:Trae CN.T(2026/6/20 19:40:34)`
 
-完整 Session 与截图索引见仓库：  
-`silentbridge-demo/docs/evidence/session-registry.md`
+### 开发过程截图
 
-### 建议上传的开发截图（3 张即可）
-
-1. `silentbridge-demo/docs/evidence/assets/01-trae-task-plan.png` — 任务规划  
-2. `silentbridge-demo/docs/evidence/assets/15-trae-phase09-plan-execution.png` — 逻辑闭环开发  
-3. `silentbridge-demo/docs/evidence/assets/26-trae-phase15-asr-plan-execution.png` — ASR 能力开发  
-
-（产品界面图见第 1 节，共约 5 张即可，无需贴几十张。）
+（依次插入 3 张：TRAE 任务规划、逻辑闭环开发、ASR 开发）
 
 ---
 
