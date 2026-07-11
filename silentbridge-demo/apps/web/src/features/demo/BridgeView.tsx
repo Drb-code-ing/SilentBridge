@@ -145,13 +145,13 @@ export function BridgeView({
     },
     listening: {
       title: "正在收听对方说话",
-      helper: "请把手机靠近对方，识别文字会出现在下方。",
-      primary: "正在收听..."
+      helper: "请把手机靠近对方。说完后点下方「停止收听」。",
+      primary: "停止收听"
     },
     transcribing: {
       title: "正在整理文字",
-      helper: "小桥正在把识别到的话整理成重点。",
-      primary: "整理中..."
+      helper: "正在把识别结果整理成重点，可取消本轮。",
+      primary: "取消整理"
     },
     done: {
       title: "已经整理成文字",
@@ -159,36 +159,80 @@ export function BridgeView({
       primary: "保存这次重点"
     },
     fallback: {
-      title: "已切到演示转写",
-      helper: "当前环境无法稳定识别语音，先用演示字幕跑通流程。",
-      primary: "演示转写中..."
+      title: "演示字幕生成中",
+      helper: "正在用演示字幕跑通流程，可随时停止。",
+      primary: "停止演示"
     },
     error: {
       title: "没有识别到清晰语音",
-      helper: "可以重试、让对方打字。如果只想看演示流程，可点「演示字幕」。",
+      helper: "可以重新收听，或让对方打字。也可使用演示字幕。",
       primary: "重新收听"
     }
   };
 
   const activeListenCopy = captionsDone ? listenCopy.done : listenCopy[asrStatus];
   const isRecording = captureMode === "recording" && isCapturing;
-  const isTranscribing = asrStatus === "transcribing" && !isRecording;
+  const isDemoCapturing = isCapturing && captureMode === "fallback-demo";
+  const isBrowserCapturing = isCapturing && captureMode === "browser-speech";
+  const isLiveCapture = isRecording || isDemoCapturing || isBrowserCapturing;
+  const isTranscribing = asrStatus === "transcribing" && !isLiveCapture;
+  const isRequestingMic = asrStatus === "requesting";
+  // 收听中必须始终有明确停止边界（主按钮），不能只剩小工具条
+  const canStopListening =
+    isLiveCapture || isRequestingMic || asrStatus === "listening" || asrStatus === "fallback";
+
   const listenTitle = isRecording
     ? "正在录音"
-    : isTranscribing
-      ? "正在识别语音"
-      : activeListenCopy.title;
+    : isDemoCapturing
+      ? "演示字幕生成中"
+      : isBrowserCapturing || asrStatus === "listening"
+        ? "正在收听"
+        : isTranscribing
+          ? "正在识别语音"
+          : isRequestingMic
+            ? "正在请求麦克风"
+            : activeListenCopy.title;
+
   const listenHelper = isRecording
-    ? "请让对方说完话后，点击「停止并识别」结束录音并发送到百度语音识别。"
-    : isTranscribing
-      ? "正在将录音发送到百度语音识别，请稍候..."
-      : activeListenCopy.helper;
-  const primaryListenLabel = captionsDone
-    ? listenCopy.done.primary
-    : isRecording
-      ? "停止并识别"
-      : activeListenCopy.primary;
-  const primaryListenAction = captionsDone ? onSave : isRecording ? onStopRecording : onUseMicrophone;
+    ? "对方说完后点「停止并识别」。也可以随时停止，再改用手动输入。"
+    : isDemoCapturing
+      ? "正在逐条生成演示字幕。可随时点「停止」中断。"
+      : isBrowserCapturing || asrStatus === "listening"
+        ? "请把手机靠近对方。说完后点「停止收听」。"
+        : isTranscribing
+          ? "正在整理文字。可点「取消」中断本轮。"
+          : isRequestingMic
+            ? "请在浏览器弹窗中允许麦克风；也可取消后改用手动输入。"
+            : activeListenCopy.helper;
+
+  let primaryListenLabel = activeListenCopy.primary;
+  let primaryListenAction: () => void = onUseMicrophone;
+  let primaryDisabled = false;
+
+  if (captionsDone && agentResult) {
+    primaryListenLabel = "保存这次重点";
+    primaryListenAction = onSave;
+  } else if (isRecording) {
+    primaryListenLabel = "停止并识别";
+    primaryListenAction = onStopRecording;
+  } else if (canStopListening) {
+    primaryListenLabel = isDemoCapturing ? "停止演示" : "停止收听";
+    primaryListenAction = onStopListening;
+  } else if (isTranscribing) {
+    primaryListenLabel = "取消整理";
+    primaryListenAction = onStopListening;
+  } else if (asrStatus === "error") {
+    primaryListenLabel = "重新收听";
+    primaryListenAction = onUseMicrophone;
+  } else if (!captionsDone) {
+    primaryListenLabel = "开始收听";
+    primaryListenAction = onUseMicrophone;
+  } else {
+    // 有字幕但 AI 还没出结果
+    primaryListenLabel = "整理中...";
+    primaryListenAction = onStopListening;
+    primaryDisabled = !agentResult;
+  }
 
   if (displayFullscreen) {
     return (
@@ -205,9 +249,9 @@ export function BridgeView({
   return (
     <div className="sb-view">
       <section className="sb-bridge-head">
-        <p className="sb-kicker">现场沟通</p>
-        <h1>一步一步来，不急。</h1>
-        <p className="sb-bridge-source">当前话术：{sourceLabel}</p>
+        <p className="sb-kicker">沟通中</p>
+        <h1>{step === "show" ? "出示给对方" : "收听并整理"}</h1>
+        <p className="sb-bridge-source">{sourceLabel}</p>
       </section>
 
       <ProgressDots step={step} hasUnderstanding={Boolean(agentResult)} />
@@ -215,12 +259,12 @@ export function BridgeView({
       {isJudgeDemo && (
         <div className="sb-judge-banner" role="status">
           <div>
-            <span>自动演示中</span>
-            <strong>无需麦克风，正在展示完整价值闭环</strong>
+            <span>示例流程</span>
+            <strong>自动演示中，可随时停止或自己操作</strong>
           </div>
           {onSkipJudgeDemo && (
             <button type="button" className="sb-judge-skip" onClick={onSkipJudgeDemo}>
-              跳过 / 自己操作
+              改为手动
             </button>
           )}
         </div>
@@ -289,32 +333,45 @@ export function BridgeView({
           <div className="sb-bridge-actions sb-bridge-actions--listen">
             <button
               type="button"
-              className="sb-primary-button"
-              onClick={primaryListenAction}
-              disabled={
-                asrStatus === "requesting" ||
-                asrStatus === "transcribing" ||
-                (isCapturing && captureMode !== "recording") ||
-                (captionsDone && !agentResult)
+              className={
+                canStopListening || isTranscribing
+                  ? "sb-primary-button sb-primary-button--stop"
+                  : "sb-primary-button"
               }
+              onClick={primaryListenAction}
+              disabled={primaryDisabled}
+              aria-live="polite"
             >
               {primaryListenLabel}
             </button>
             <div className="sb-bridge-toolstrip" aria-label="听桥操作">
-              <button type="button" className="sb-tool-button" onClick={captionsDone ? onBackToReply : onBackToShow}>
+              <button
+                type="button"
+                className="sb-tool-button"
+                onClick={captionsDone ? onBackToReply : onBackToShow}
+                disabled={isLiveCapture || isRequestingMic}
+              >
                 <span>←</span>
                 <strong>{captionsDone ? "改文字" : "上一步"}</strong>
               </button>
-              {asrStatus === "error" && visibleCaptions.length === 0 && (
+              {(asrStatus === "error" || asrStatus === "idle") && visibleCaptions.length === 0 && !isLiveCapture && (
                 <button type="button" className="sb-tool-button" onClick={onStartFallbackDemo}>
                   <span>演</span>
                   <strong>演示字幕</strong>
                 </button>
               )}
-              <button type="button" className="sb-tool-button" onClick={isCapturing ? onStopListening : onStartNew}>
-                <span>{isCapturing ? "停" : "新"}</span>
-                <strong>{isCapturing ? "停止" : "新沟通"}</strong>
-              </button>
+              {(canStopListening || isTranscribing) && (
+                <button type="button" className="sb-tool-button sb-tool-button--danger" onClick={onStopListening}>
+                  <span>■</span>
+                  <strong>停止</strong>
+                </button>
+              )}
+              {!isLiveCapture && !isTranscribing && !isRequestingMic && (
+                <button type="button" className="sb-tool-button" onClick={onStartNew}>
+                  <span>新</span>
+                  <strong>新沟通</strong>
+                </button>
+              )}
             </div>
           </div>
           <CaptionPanel visibleCaptions={visibleCaptions} isCapturing={isCapturing} />
@@ -364,8 +421,8 @@ export function BridgeView({
           )}
           {captionsDone && agentResult && (
             <div className="sb-next-cta-card">
-              <span>下一步</span>
-              <strong>重点已经整理好。可以保存，或请对方确认缺失项。</strong>
+              <span>可继续</span>
+              <strong>保存本轮，或让对方确认还缺的信息。</strong>
               <button type="button" className="sb-primary-button" onClick={onSave}>
                 保存这次重点
               </button>

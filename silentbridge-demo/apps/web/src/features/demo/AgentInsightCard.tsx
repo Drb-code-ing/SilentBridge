@@ -71,8 +71,8 @@ export function AgentInsightCard({
     <section className="sb-agent-card sb-agent-card--peak" aria-label="AI 理解结果">
       <div className="sb-agent-peak-banner">
         <div>
-          <span>核心价值</span>
-          <strong>小桥已整理出确认点</strong>
+          <span>本轮整理</span>
+          <strong>已确认 / 待确认 / 风险</strong>
         </div>
         <div className="sb-agent-provider">{providerLabel}</div>
       </div>

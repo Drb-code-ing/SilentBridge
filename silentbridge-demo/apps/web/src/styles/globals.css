@@ -565,6 +565,37 @@ button:focus-visible {
   opacity: 0.48;
 }
 
+.sb-primary-button--stop {
+  background: #283044;
+  color: #ffffff;
+}
+
+.sb-tool-button--danger span {
+  background: rgba(196, 90, 58, 0.14);
+  color: #c45a3a;
+}
+
+.sb-home-cta {
+  width: 100%;
+  margin-top: 0.15rem;
+}
+
+.sb-quiet-link {
+  border: 0;
+  background: transparent;
+  color: #6f7787;
+  padding: 0.35rem 0.15rem 0.6rem;
+  text-align: left;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.sb-quiet-link:active {
+  color: #283044;
+}
+
 .sb-primary-button:active,
 .sb-secondary-button:active,
 .sb-tool-button:active,

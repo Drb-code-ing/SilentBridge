@@ -55,12 +55,13 @@ import {
 } from "./browser-speech-client";
 
 export function DemoPage({
-  onBackHome,
+  onBackHome: _onBackHome,
   autoStartJudgeDemo = false
 }: {
   onBackHome?: () => void;
   autoStartJudgeDemo?: boolean;
 } = {}) {
+  void _onBackHome;
   const contentRef = useRef<HTMLElement>(null);
   const replyRunIdRef = useRef(0);
   const judgeTimerRef = useRef<number | null>(null);
@@ -210,7 +211,7 @@ export function DemoPage({
 
     judgeTimerRef.current = window.setTimeout(() => {
       setBridgeStep("listen");
-      setFlowNotice("正在模拟对方说话，并转成字幕…");
+      setFlowNotice("示例字幕生成中，可随时点「停止演示」。");
       beginReplyRun();
       setCaptureMode("fallback-demo");
       setIsCapturing(true);
@@ -931,8 +932,10 @@ export function DemoPage({
     stopSpeechCapture();
     setCaptureMode("idle");
     setIsCapturing(false);
-    setAsrStatus("idle");
-    setFlowNotice("已停止收听，可以重新收听，或让对方直接打字。");
+    // 停止后保留已出现的字幕，方便改走手动；若还没有任何字幕则回到可重新开始
+    setAsrStatus((prev) => (prev === "done" ? "done" : "idle"));
+    setAgentResult(undefined);
+    setFlowNotice("已停止。可重新收听、演示字幕，或展开手动输入。");
     setBridgeStep("listen");
   };
 
@@ -969,7 +972,11 @@ export function DemoPage({
 
   const handleSkipJudgeDemo = () => {
     stopJudgeDemo();
-    setFlowNotice("已切换为手动操作。可用麦克风、演示字幕或手动输入继续。");
+    stopSpeechCapture();
+    setCaptureMode("idle");
+    setIsCapturing(false);
+    setAsrStatus(visibleCaptions.length > 0 ? "done" : "idle");
+    setFlowNotice("已改为手动。可停止后重听、用演示字幕，或手动输入。");
   };
 
   const renderActiveView = () => {
@@ -1093,46 +1100,6 @@ export function DemoPage({
 
   return (
     <main className={shellClass}>
-      <aside className="sb-stage-panel" aria-label="产品说明">
-        <div className="sb-stage-brand">
-          <span className="sb-brand-mark">桥</span>
-          <div>
-            <strong>SilentBridge 无声桥</strong>
-            <small>听障现场沟通副驾驶</small>
-          </div>
-        </div>
-        <h2>评委 60 秒看懂的路径</h2>
-        <ol className="sb-stage-steps">
-          <li>
-            <strong>出示</strong>
-            <span>大字开场白递给对方</span>
-          </li>
-          <li>
-            <strong>收听</strong>
-            <span>对方说话变成字幕</span>
-          </li>
-          <li>
-            <strong>理解</strong>
-            <span>重点、风险、确认问题</span>
-          </li>
-          <li>
-            <strong>留下</strong>
-            <span>保存摘要，可继续追问</span>
-          </li>
-        </ol>
-        <div className="sb-stage-compare">
-          <p>普通字幕只解决“看见字”。</p>
-          <p>
-            无声桥解决 <b>理解、确认、行动</b>。
-          </p>
-        </div>
-        <button type="button" className="sb-primary-button sb-stage-cta" onClick={startJudgeDemo}>
-          一键演示（无需麦克风）
-        </button>
-        <p className="sb-stage-note">
-          默认演示：医院问诊。右侧为真实可交互产品；麦克风不可用时自动字幕 + 规则引擎兜底。
-        </p>
-      </aside>
       <div className="sb-device-frame">
         <AppTopBar
           activeTab={activeTab}
@@ -1145,10 +1112,6 @@ export function DemoPage({
           }
           onGoHome={() => {
             stopJudgeDemo();
-            if (onBackHome) {
-              onBackHome();
-              return;
-            }
             setActiveTab("home");
           }}
         />

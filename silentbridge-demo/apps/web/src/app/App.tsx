@@ -6,7 +6,8 @@ import { ErrorBoundary } from "../components/ErrorBoundary";
 type View = "landing" | "demo";
 
 function App() {
-  const [view, setView] = useState<View>("landing");
+  // 默认直接进入产品，而不是宣传落地页
+  const [view, setView] = useState<View>("demo");
   const [autoJudgeDemo, setAutoJudgeDemo] = useState(false);
 
   if (view === "landing") {
@@ -25,7 +26,7 @@ function App() {
   }
 
   return (
-    <ErrorBoundary onReset={() => setView("landing")}>
+    <ErrorBoundary onReset={() => setView("demo")}>
       <DemoPage
         onBackHome={() => {
           setAutoJudgeDemo(false);
