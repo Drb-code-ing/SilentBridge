@@ -1,6 +1,6 @@
 export type AppTab = "home" | "bridge" | "records" | "phrases";
 export type BridgeStep = "show" | "listen";
-export type DemoFlowId = "pharmacy" | "service" | "traffic" | "generic";
+export type DemoFlowId = "clinic" | "pharmacy" | "service" | "traffic" | "generic";
 
 export interface CaptionLine {
   id: string;
@@ -17,7 +17,7 @@ export interface QuickScenario {
   title: string;
   helper: string;
   message: string;
-  style: "sky" | "sun" | "mint";
+  style: "sky" | "sun" | "mint" | "coral";
 }
 
 export interface RecordItem {
@@ -71,11 +71,18 @@ export interface DemoFlow {
   savedRecord: SavedRecordTemplate;
 }
 
-export const defaultFlowId: DemoFlowId = "pharmacy";
+export const defaultFlowId: DemoFlowId = "clinic";
 
-export const defaultMessage = "我听不见，但可以看文字。请说慢一点。";
+export const defaultMessage = "我听不见，但可以看文字。请说慢一点，关键信息请写下来。";
 
 export const quickScenarios: QuickScenario[] = [
+  {
+    id: "clinic",
+    title: "医院问诊",
+    helper: "诊断、用药、急诊红线",
+    message: "我听不清，请帮我写下诊断、用药和什么情况要马上急诊。",
+    style: "coral"
+  },
   {
     id: "pharmacy",
     title: "药店问药",
@@ -85,8 +92,8 @@ export const quickScenarios: QuickScenario[] = [
   },
   {
     id: "service",
-    title: "窗口办事",
-    helper: "材料、排队、下一步",
+    title: "政务窗口",
+    helper: "材料、窗口、截止时间",
     message: "我需要确认要交哪些材料，请把关键步骤写下来。",
     style: "sun"
   },
@@ -99,15 +106,27 @@ export const quickScenarios: QuickScenario[] = [
   }
 ];
 
+
+const clinicUnderstanding: AiUnderstanding = {
+  confirmed: ["初步判断为咽喉炎", "先按剂量连续服药 3 天", "三天后复诊", "胸闷或持续高烧要马上急诊"],
+  missing: ["具体药名和每日次数还没写清", "是否需要进一步检查还没确认"],
+  risks: [
+    { level: "high", text: "胸闷或持续高烧不能等复诊，需要立即急诊。" },
+    { level: "medium", text: "用药剂量若没写清，回家后容易吃错。" }
+  ],
+  suggestedQuestion: "请再写清楚：药名、每天几次、三天后几点复诊，以及什么情况要马上去急诊。",
+  plainSummary: "医生判断为咽喉炎，需连续服药三天并复诊；若胸闷或持续高烧应立即急诊，药名与次数仍需确认。"
+};
+
 const pharmacyUnderstanding: AiUnderstanding = {
-  confirmed: ["饭后服用", "一天两次", "避免饮酒同服"],
+  confirmed: ["饭后服用", "一天两次，早晚各一次", "避免饮酒同服", "明显不适需先停用并咨询医生"],
   missing: ["药名还没有写下来", "是否正在服用其他药还没确认"],
   risks: [
     { level: "high", text: "药物和酒同服可能带来风险，需要明确提醒。" },
     { level: "medium", text: "如果还在服用其他药，最好先咨询医生。" }
   ],
-  suggestedQuestion: "请把药名、用量和不能一起吃的东西写下来，我要保存。",
-  plainSummary: "这次沟通已经确认用药时间和禁忌，但还需要补齐药名和用量。"
+  suggestedQuestion: "请把药名、每天几次、以及不能一起吃的东西写下来，我要保存。",
+  plainSummary: "已确认饭后服用、一天两次，并有禁酒提醒；仍需补齐药名和是否联用其他药。"
 };
 
 const serviceUnderstanding: AiUnderstanding = {
@@ -141,26 +160,63 @@ const genericUnderstanding: AiUnderstanding = {
 };
 
 export const demoFlows: Record<DemoFlowId, DemoFlow> = {
+  clinic: {
+    id: "clinic",
+    captions: [
+      {
+        id: "clinic-caption-1",
+        speaker: "医生",
+        text: "这次主要是咽喉炎，先按这个剂量连续吃三天。",
+        time: "00:01",
+        important: true
+      },
+      {
+        id: "clinic-caption-2",
+        speaker: "医生",
+        text: "如果出现胸闷、持续高烧，不能等复诊，要马上来急诊。",
+        time: "00:05",
+        important: true
+      },
+      {
+        id: "clinic-caption-3",
+        speaker: "医生",
+        text: "三天后到门诊复诊，把用药情况和症状变化告诉医生。",
+        time: "00:09"
+      }
+    ],
+    summaryHighlight: "咽喉炎，连吃三天；胸闷或持续高烧马上去急诊；三天后复诊。",
+    aiUnderstanding: clinicUnderstanding,
+    savedRecord: {
+      flowId: "clinic",
+      title: "刚刚的医院问诊",
+      place: "门诊诊室",
+      summary: "已确认咽喉炎、连续服药三天、三天后复诊，并有急诊红线提醒。",
+      nextStep: "确认药名与每日次数，三天后复诊；出现胸闷或持续高烧立即急诊。",
+      keyPoints: ["咽喉炎", "连续服药三天", "三天后复诊", "胸闷高烧急诊"],
+      actionPhrase: "请再写清楚药名、每天几次，以及什么情况要马上去急诊。",
+      aiUnderstanding: clinicUnderstanding
+    }
+  },
   pharmacy: {
     id: "pharmacy",
     captions: [
       {
         id: "pharmacy-caption-1",
-        speaker: "店员",
+        speaker: "药师",
         text: "这个药饭后吃，一天两次，早晚各一次。",
         time: "00:01",
         important: true
       },
       {
         id: "pharmacy-caption-2",
-        speaker: "店员",
+        speaker: "药师",
         text: "不要和酒一起服用，如果已经在吃其他药，最好先问医生。",
         time: "00:05",
         important: true
       },
       {
         id: "pharmacy-caption-3",
-        speaker: "店员",
+        speaker: "药师",
         text: "如果吃完后明显不舒服，就先停用，并尽快咨询医生。",
         time: "00:09"
       }
@@ -293,6 +349,18 @@ export const demoFlows: Record<DemoFlowId, DemoFlow> = {
 
 export const initialRecords: RecordItem[] = [
   {
+    id: "record-clinic",
+    flowId: "clinic",
+    title: "门诊问诊",
+    place: "社区医院门诊",
+    time: "今天 09:40",
+    summary: "已确认咽喉炎、连吃三天药、三天后复诊，胸闷或持续高烧需急诊。",
+    nextStep: "补齐药名与每日次数，按急诊红线观察症状。",
+    keyPoints: ["咽喉炎", "连吃三天", "三天后复诊", "急诊红线"],
+    actionPhrase: "请再写清楚药名、每天几次，以及什么情况要马上去急诊。",
+    aiUnderstanding: clinicUnderstanding
+  },
+  {
     id: "record-pharmacy",
     flowId: "pharmacy",
     title: "药店问药",
@@ -338,7 +406,8 @@ export const phrasePacks: PhrasePack[] = [
     phrases: [
       { id: "first-1", text: "我听不见，但可以看文字。请说慢一点。", intent: "说明状态" },
       { id: "first-2", text: "请把关键词写下来给我看。", intent: "请对方写" },
-      { id: "first-3", text: "我没有听懂，可以换一种方式说吗？", intent: "请求复述" }
+      { id: "first-3", text: "我没有听懂，可以换一种方式说吗？", intent: "请求复述" },
+      { id: "first-4", text: "请面对我，让我看清你的口型或文字。", intent: "配合方式" }
     ]
   },
   {
@@ -348,7 +417,19 @@ export const phrasePacks: PhrasePack[] = [
     phrases: [
       { id: "confirm-1", text: "请写下时间、地点和下一步。", intent: "确认三要素" },
       { id: "confirm-2", text: "请写下药名、用量、一天几次。", intent: "确认用药" },
-      { id: "confirm-3", text: "我需要补交哪些材料？", intent: "确认材料" }
+      { id: "confirm-clinic", text: "请写下诊断、用药，以及什么情况要马上急诊。", intent: "确认医嘱" },
+      { id: "confirm-3", text: "我需要补交哪些材料？", intent: "确认材料" },
+      { id: "confirm-4", text: "请再确认方向、站台和换乘站。", intent: "确认路线" }
+    ]
+  },
+  {
+    id: "urgent",
+    title: "关键求助",
+    description: "紧张场合先稳住沟通。",
+    phrases: [
+      { id: "urgent-1", text: "这很重要，请帮我写下来，我要保存。", intent: "请求记录" },
+      { id: "urgent-2", text: "请稍等，我正在通过字幕阅读。", intent: "请求等待" },
+      { id: "urgent-3", text: "如果有风险或禁忌，请明确告诉我。", intent: "确认风险" }
     ]
   }
 ];

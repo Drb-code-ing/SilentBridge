@@ -4,6 +4,7 @@ import {
   defaultMessage,
   demoFlows,
   initialRecords,
+  quickScenarios,
   type AppTab,
   type BridgeStep,
   type CaptionLine,
@@ -47,25 +48,53 @@ import {
   type BrowserSpeechCaptureController
 } from "./browser-speech-client";
 
-export function DemoPage({ onBackHome }: { onBackHome?: () => void } = {}) {
+export function DemoPage({
+  onBackHome,
+  autoStartJudgeDemo = false
+}: {
+  onBackHome?: () => void;
+  autoStartJudgeDemo?: boolean;
+} = {}) {
   const contentRef = useRef<HTMLElement>(null);
   const replyRunIdRef = useRef(0);
+  const judgeTimerRef = useRef<number | null>(null);
   const restoredDraft = useMemo(() => loadBridgeProgressDraft(), []);
-  const [activeTab, setActiveTab] = useState<AppTab>(restoredDraft?.activeTab ?? "home");
-  const [bridgeStep, setBridgeStep] = useState<BridgeStep>(restoredDraft?.bridgeStep ?? "show");
-  const [displayMessage, setDisplayMessage] = useState(restoredDraft?.displayMessage ?? defaultMessage);
-  const [bridgeSourceLabel, setBridgeSourceLabel] = useState(restoredDraft?.bridgeSourceLabel ?? "默认开场白");
-  const [activeFlowId, setActiveFlowId] = useState<DemoFlowId>(restoredDraft?.activeFlowId ?? defaultFlowId);
+  const [activeTab, setActiveTab] = useState<AppTab>(
+    autoStartJudgeDemo ? "bridge" : restoredDraft?.activeTab ?? "home"
+  );
+  const [bridgeStep, setBridgeStep] = useState<BridgeStep>(
+    autoStartJudgeDemo ? "show" : restoredDraft?.bridgeStep ?? "show"
+  );
+  const [displayMessage, setDisplayMessage] = useState(
+    autoStartJudgeDemo
+      ? quickScenarios[0]?.message ?? defaultMessage
+      : restoredDraft?.displayMessage ?? defaultMessage
+  );
+  const [bridgeSourceLabel, setBridgeSourceLabel] = useState(
+    autoStartJudgeDemo
+      ? `${quickScenarios[0]?.title ?? "医院问诊"} · 一键演示`
+      : restoredDraft?.bridgeSourceLabel ?? "默认开场白"
+  );
+  const [activeFlowId, setActiveFlowId] = useState<DemoFlowId>(
+    autoStartJudgeDemo ? quickScenarios[0]?.id ?? defaultFlowId : restoredDraft?.activeFlowId ?? defaultFlowId
+  );
   const [activeSession, setActiveSession] = useState<CommunicationSession>(
     () =>
-      restoredDraft?.activeSession ??
-      createCommunicationSession({
-        flowId: defaultFlowId,
-        sourceLabel: "默认开场白",
-        prompt: defaultMessage
-      })
+      restoredDraft?.activeSession && !autoStartJudgeDemo
+        ? restoredDraft.activeSession
+        : createCommunicationSession({
+            flowId: autoStartJudgeDemo ? quickScenarios[0]?.id ?? defaultFlowId : defaultFlowId,
+            sourceLabel: autoStartJudgeDemo
+              ? `${quickScenarios[0]?.title ?? "医院问诊"} · 一键演示`
+              : "默认开场白",
+            prompt: autoStartJudgeDemo
+              ? quickScenarios[0]?.message ?? defaultMessage
+              : defaultMessage
+          })
   );
-  const [visibleCaptions, setVisibleCaptions] = useState<CaptionLine[]>(restoredDraft?.visibleCaptions ?? []);
+  const [visibleCaptions, setVisibleCaptions] = useState<CaptionLine[]>(
+    autoStartJudgeDemo ? [] : restoredDraft?.visibleCaptions ?? []
+  );
   const [isCapturing, setIsCapturing] = useState(false);
   const [records, setRecords] = useState<RecordItem[]>(() => loadStoredRecords(initialRecords));
   const [selectedRecordId, setSelectedRecordId] = useState(() => {
@@ -75,19 +104,31 @@ export function DemoPage({ onBackHome }: { onBackHome?: () => void } = {}) {
   const [recordsMode, setRecordsMode] = useState<RecordsMode>("list");
   const [activePhraseId, setActivePhraseId] = useState<string>();
   const [justSavedRecordId, setJustSavedRecordId] = useState<string>();
-  const [asrStatus, setAsrStatus] = useState<AsrStatus>(restoredDraft?.asrStatus ?? "idle");
-  const [agentResult, setAgentResult] = useState<AgentRunResult | undefined>(restoredDraft?.agentResult);
-  const [agentProvider, setAgentProvider] = useState<"proxy" | "fallback">(restoredDraft?.agentProvider ?? "fallback");
+  const [asrStatus, setAsrStatus] = useState<AsrStatus>(
+    autoStartJudgeDemo ? "idle" : restoredDraft?.asrStatus ?? "idle"
+  );
+  const [agentResult, setAgentResult] = useState<AgentRunResult | undefined>(
+    autoStartJudgeDemo ? undefined : restoredDraft?.agentResult
+  );
+  const [agentProvider, setAgentProvider] = useState<"proxy" | "fallback">(
+    autoStartJudgeDemo ? "fallback" : restoredDraft?.agentProvider ?? "fallback"
+  );
   const [homeMessageDraft, setHomeMessageDraft] = useState(defaultMessage);
-  const [replyDraft, setReplyDraft] = useState(restoredDraft?.replyDraft ?? "");
-  const [processedReplyDraft, setProcessedReplyDraft] = useState(restoredDraft?.processedReplyDraft ?? "");
+  const [replyDraft, setReplyDraft] = useState(autoStartJudgeDemo ? "" : restoredDraft?.replyDraft ?? "");
+  const [processedReplyDraft, setProcessedReplyDraft] = useState(
+    autoStartJudgeDemo ? "" : restoredDraft?.processedReplyDraft ?? ""
+  );
   const [audioCaptureState, setAudioCaptureState] = useState<AudioCaptureState>({
     support: { supported: false, reason: "unknown" },
     permissionState: "unknown"
   });
-  const [flowNotice, setFlowNotice] = useState<string>();
+  const [flowNotice, setFlowNotice] = useState<string | undefined>(
+    autoStartJudgeDemo ? "一键演示即将开始：出示开场白 → 模拟字幕 → AI 理解 → 保存重点。" : undefined
+  );
   const [captureMode, setCaptureMode] = useState<CaptureMode>("idle");
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [displayFullscreen, setDisplayFullscreen] = useState(false);
+  const [isJudgeDemo, setIsJudgeDemo] = useState(autoStartJudgeDemo);
   const speechCaptureRef = useRef<BrowserSpeechCaptureController>();
   const audioRecorderRef = useRef<AudioRecorder | null>(null);
 
@@ -105,8 +146,77 @@ export function DemoPage({ onBackHome }: { onBackHome?: () => void } = {}) {
   useEffect(() => {
     return () => {
       speechCaptureRef.current?.abort();
+      if (judgeTimerRef.current !== null) {
+        window.clearTimeout(judgeTimerRef.current);
+      }
     };
   }, []);
+
+  const clearJudgeTimers = () => {
+    if (judgeTimerRef.current !== null) {
+      window.clearTimeout(judgeTimerRef.current);
+      judgeTimerRef.current = null;
+    }
+  };
+
+  const stopJudgeDemo = () => {
+    clearJudgeTimers();
+    setIsJudgeDemo(false);
+  };
+
+  const startJudgeDemo = () => {
+    const scenario = quickScenarios[0];
+    const message = scenario?.message ?? defaultMessage;
+    const flowId: DemoFlowId = scenario?.id ?? defaultFlowId;
+    const sourceLabel = `${scenario?.title ?? "医院问诊"} · 一键演示`;
+
+    clearJudgeTimers();
+    clearBridgeProgressDraft();
+    stopSpeechCapture();
+    setIsJudgeDemo(true);
+    setDisplayFullscreen(false);
+    setFlowNotice("一键演示：先把开场白出示给对方，再自动模拟收听与理解。");
+    setActiveFlowId(flowId);
+    setDisplayMessage(message);
+    setBridgeSourceLabel(sourceLabel);
+    setActiveSession(
+      createCommunicationSession({
+        flowId,
+        sourceLabel,
+        prompt: message
+      })
+    );
+    setReplyDraft("");
+    setProcessedReplyDraft("");
+    setVisibleCaptions([]);
+    setAgentResult(undefined);
+    setAgentProvider("fallback");
+    setAsrStatus("idle");
+    setCaptureMode("idle");
+    setIsCapturing(false);
+    setBridgeStep("show");
+    setActiveTab("bridge");
+
+    judgeTimerRef.current = window.setTimeout(() => {
+      setBridgeStep("listen");
+      setFlowNotice("正在模拟对方说话，并转成字幕…");
+      beginReplyRun();
+      setCaptureMode("fallback-demo");
+      setIsCapturing(true);
+      setAsrStatus("fallback");
+    }, 2200);
+  };
+
+  useEffect(() => {
+    if (!autoStartJudgeDemo) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      startJudgeDemo();
+    }, 280);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only auto-run once on mount when requested
+  }, [autoStartJudgeDemo]);
 
   useEffect(() => {
     if (captureMode !== "recording" || !isCapturing) {
@@ -178,6 +288,10 @@ export function DemoPage({ onBackHome }: { onBackHome?: () => void } = {}) {
           setAgentProvider(response.provider);
           setAsrStatus("done");
 
+          if (isJudgeDemo) {
+            setFlowNotice("演示完成：重点与风险已整理。可点「保存这次重点」或「请对方确认」。");
+          }
+
           if (response.correctedText && visibleCaptions.length > 0) {
             const latestId = visibleCaptions[visibleCaptions.length - 1].id;
             setVisibleCaptions((prev) => applyCaptionCorrection(prev, response.correctedText, latestId));
@@ -220,7 +334,7 @@ export function DemoPage({ onBackHome }: { onBackHome?: () => void } = {}) {
     }, 720);
 
     return () => window.clearTimeout(timer);
-  }, [activeFlow, activeFlowId, activeSession, displayMessage, isCapturing, captureMode, visibleCaptions.length]);
+  }, [activeFlow, activeFlowId, activeSession, displayMessage, isCapturing, captureMode, visibleCaptions.length, isJudgeDemo]);
 
   useEffect(() => {
     if (!justSavedRecordId) {
@@ -484,11 +598,35 @@ export function DemoPage({ onBackHome }: { onBackHome?: () => void } = {}) {
       return;
     }
 
-    openBridge(
-      agentResult.understanding.suggestedQuestion,
-      `${bridgeSourceLabel} · 追问确认`,
-      activeFlowId
+    // 当场多轮：不新建会话、不跳走，直接用确认问题进入下一轮出示
+    stopJudgeDemo();
+    const nextPrompt = agentResult.understanding.suggestedQuestion.trim();
+    if (!nextPrompt) {
+      return;
+    }
+
+    const baseLabel = bridgeSourceLabel
+      .replace(/\s*[·•]\s*(一键演示|继续追问|追问确认|当场追问)\s*$/g, "")
+      .trim();
+    const roundIndex = activeSession.rounds.length + 1;
+
+    setDisplayMessage(nextPrompt);
+    setBridgeSourceLabel(`${baseLabel || "现场沟通"} · 当场追问 ${roundIndex}`);
+    setActiveSession((prev) => ({
+      ...prev,
+      currentPrompt: nextPrompt,
+      status: "showing_prompt",
+      updatedAt: Date.now()
+    }));
+    resetReplyProgress();
+    setReplyDraft("");
+    setFlowNotice(
+      activeSession.rounds.length > 0
+        ? `第 ${roundIndex} 轮确认：先把问题出示给对方，再收听补充信息。`
+        : "已生成确认问题。先出示给对方，再继续收听。"
     );
+    setBridgeStep("show");
+    setActiveTab("bridge");
   };
 
   const saveCurrentRecord = () => {
@@ -811,9 +949,15 @@ export function DemoPage({ onBackHome }: { onBackHome?: () => void } = {}) {
   };
 
   const startFromHomeDraft = () => {
+    stopJudgeDemo();
     const message = normalizeUserText(homeMessageDraft, defaultMessage);
     const flowId = inferFlowIdFromText(message);
     openBridge(message, "自由输入", flowId);
+  };
+
+  const handleSkipJudgeDemo = () => {
+    stopJudgeDemo();
+    setFlowNotice("已切换为手动操作。可用麦克风、演示字幕或手动输入继续。");
   };
 
   const renderActiveView = () => {
@@ -824,9 +968,13 @@ export function DemoPage({ onBackHome }: { onBackHome?: () => void } = {}) {
           messageDraft={homeMessageDraft}
           onMessageDraftChange={setHomeMessageDraft}
           onStart={startFromHomeDraft}
-          onPickScenario={handlePickScenario}
+          onPickScenario={(scenario) => {
+            stopJudgeDemo();
+            handlePickScenario(scenario);
+          }}
           onOpenRecord={handleOpenRecord}
           onOpenPhrases={() => setActiveTab("phrases")}
+          onStartJudgeDemo={startJudgeDemo}
         />
       );
     }
@@ -849,27 +997,50 @@ export function DemoPage({ onBackHome }: { onBackHome?: () => void } = {}) {
           runtimeStatus={runtimeStatus}
           onReplyDraftChange={handleReplyDraftChange}
           onUseDemoReply={useDemoReply}
-          onUseMicrophone={handleUseMicrophone}
+          onUseMicrophone={() => {
+            stopJudgeDemo();
+            void handleUseMicrophone();
+          }}
           onStopRecording={handleStopRecording}
           captureMode={captureMode}
           recordingSeconds={recordingSeconds}
           onProcessReply={processReply}
           onStopListening={cancelCurrentRound}
-          onStartNew={startNewCommunication}
+          onStartNew={() => {
+            stopJudgeDemo();
+            startNewCommunication();
+          }}
           onBackToShow={backToShowStep}
           onBackToReply={backToReplyInput}
-          onStartListening={openReplyComposer}
-          onSave={saveCurrentRecord}
-          onConfirmQuestion={handleConfirmQuestion}
+          onStartListening={() => {
+            if (isJudgeDemo) {
+              return;
+            }
+            openReplyComposer();
+          }}
+          onSave={() => {
+            stopJudgeDemo();
+            saveCurrentRecord();
+          }}
+          onConfirmQuestion={() => {
+            stopJudgeDemo();
+            handleConfirmQuestion();
+          }}
           onOpenPhrases={() => setActiveTab("phrases")}
-          onStartFallbackDemo={() => startFallbackCaptionCapture("已切到演示字幕模式。这只是演示用预设内容，真实使用时请用麦克风识别或手动输入。")}
+          onStartFallbackDemo={() =>
+            startFallbackCaptionCapture(
+              "已切到演示字幕模式。这只是演示用预设内容，真实使用时请用麦克风识别或手动输入。"
+            )
+          }
           permissionState={audioCaptureState.permissionState}
           onRecoveryAction={handleRecoveryAction}
           audioCaptureFailureReason={
-            !audioCaptureState.support.supported
-              ? audioCaptureState.support.reason
-              : undefined
+            !audioCaptureState.support.supported ? audioCaptureState.support.reason : undefined
           }
+          displayFullscreen={displayFullscreen}
+          onToggleDisplayFullscreen={() => setDisplayFullscreen((value) => !value)}
+          isJudgeDemo={isJudgeDemo}
+          onSkipJudgeDemo={handleSkipJudgeDemo}
         />
       );
     }
@@ -883,7 +1054,10 @@ export function DemoPage({ onBackHome }: { onBackHome?: () => void } = {}) {
           justSavedRecordId={justSavedRecordId}
           onSelectRecord={handleSelectRecord}
           onBackToList={() => setRecordsMode("list")}
-          onContinue={handleContinueRecord}
+          onContinue={(record) => {
+            stopJudgeDemo();
+            handleContinueRecord(record);
+          }}
           onOpenHome={() => setActiveTab("home")}
           onDeleteRecord={handleDeleteRecord}
           onResetRecords={handleResetRecords}
@@ -895,11 +1069,61 @@ export function DemoPage({ onBackHome }: { onBackHome?: () => void } = {}) {
   };
 
   return (
-    <main className="sb-app-shell">
+    <main className={`sb-app-shell${displayFullscreen ? " sb-app-shell--fullscreen" : ""}`}>
+      <aside className="sb-stage-panel" aria-label="产品说明">
+        <div className="sb-stage-brand">
+          <span className="sb-brand-mark">桥</span>
+          <div>
+            <strong>SilentBridge 无声桥</strong>
+            <small>听障现场沟通副驾驶</small>
+          </div>
+        </div>
+        <h2>评委 60 秒看懂的路径</h2>
+        <ol className="sb-stage-steps">
+          <li>
+            <strong>出示</strong>
+            <span>大字开场白递给对方</span>
+          </li>
+          <li>
+            <strong>收听</strong>
+            <span>对方说话变成字幕</span>
+          </li>
+          <li>
+            <strong>理解</strong>
+            <span>重点、风险、确认问题</span>
+          </li>
+          <li>
+            <strong>留下</strong>
+            <span>保存摘要，可继续追问</span>
+          </li>
+        </ol>
+        <div className="sb-stage-compare">
+          <p>普通字幕只解决“看见字”。</p>
+          <p>
+            无声桥解决 <b>理解、确认、行动</b>。
+          </p>
+        </div>
+        <button type="button" className="sb-primary-button sb-stage-cta" onClick={startJudgeDemo}>
+          一键演示（无需麦克风）
+        </button>
+        <p className="sb-stage-note">右侧手机为真实可交互产品。麦克风不可用时自动演示字幕与规则引擎兜底。</p>
+      </aside>
       <div className="sb-device-frame">
-        <AppTopBar activeTab={activeTab} onGoHome={() => (onBackHome ? onBackHome() : setActiveTab("home"))} />
-        <section className="sb-app-content" ref={contentRef}>{renderActiveView()}</section>
-        <BottomNav activeTab={activeTab} onChange={handleTabChange} />
+        <AppTopBar
+          activeTab={activeTab}
+          onGoHome={() => {
+            stopJudgeDemo();
+            if (onBackHome) {
+              onBackHome();
+              return;
+            }
+            setActiveTab("home");
+          }}
+        />
+        <section className="sb-app-content" ref={contentRef}>
+          {renderActiveView()}
+        </section>
+        {!displayFullscreen && <BottomNav activeTab={activeTab} onChange={handleTabChange} />}
       </div>
     </main>
   );

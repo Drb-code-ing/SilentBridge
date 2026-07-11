@@ -7,7 +7,7 @@ export function AppTopBar({ activeTab, onGoHome }: { activeTab: AppTab; onGoHome
         <span className="sb-brand-mark">桥</span>
         <span>
           <strong>无声桥</strong>
-          <small>听障现场沟通助手</small>
+          <small>听障现场沟通副驾驶</small>
         </span>
       </button>
       <div className="sb-status-pill">{tabLabels[activeTab].label}</div>

@@ -4,6 +4,28 @@ import { filterRecords, type FlowIdFilter } from "./record-filter";
 
 export type RecordsMode = "list" | "detail";
 
+function buildShareText(record: RecordItem) {
+  return [
+    `【无声桥沟通记录】${record.title}`,
+    `地点：${record.place}`,
+    `时间：${record.time}`,
+    "",
+    `摘要：${record.summary}`,
+    "",
+    "重点：",
+    ...record.keyPoints.map((point) => `· ${point}`),
+    "",
+    record.aiUnderstanding.risks.length > 0 ? "风险：" : "",
+    ...record.aiUnderstanding.risks.map((risk) => `· ${risk.text}`),
+    "",
+    `下一步：${record.nextStep}`,
+    "",
+    `建议确认：${record.aiUnderstanding.suggestedQuestion}`
+  ]
+    .filter((line) => line !== undefined)
+    .join("\n");
+}
+
 export function RecordsView({
   records,
   selectedRecordId,
@@ -29,9 +51,11 @@ export function RecordsView({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [flowFilter, setFlowFilter] = useState<FlowIdFilter>("all");
+  const [copied, setCopied] = useState(false);
 
   const flowFilterOptions: Array<{ id: FlowIdFilter; label: string }> = [
     { id: "all", label: "全部" },
+    { id: "clinic", label: "医院" },
     { id: "pharmacy", label: "药店" },
     { id: "service", label: "政务" },
     { id: "traffic", label: "交通" },
@@ -41,6 +65,16 @@ export function RecordsView({
   const filteredRecords = filterRecords(records, searchQuery, flowFilter);
   const selectedRecord = records.find((record) => record.id === selectedRecordId) ?? records[0];
   const showSavedNote = Boolean(justSavedRecordId && justSavedRecordId === selectedRecord.id);
+
+  const handleCopyRecord = async () => {
+    try {
+      await navigator.clipboard.writeText(buildShareText(selectedRecord));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // ignore clipboard failures
+    }
+  };
 
   if (mode === "list") {
     return (
@@ -125,7 +159,9 @@ export function RecordsView({
 
       <section className="sb-record-detail">
         {showSavedNote && (
-          <div className="sb-record-saved-note">刚刚已保存，可以回看重点，也可以继续追问。</div>
+          <div className="sb-record-saved-note">
+            这次重点已留下。关键信息不会再丢，也可以复制给家人，或继续追问对方确认。
+          </div>
         )}
         <div className="sb-sticker">重点</div>
         <h2>{selectedRecord.title}</h2>
@@ -138,6 +174,13 @@ export function RecordsView({
         <div className="sb-record-ai">
           <span>小桥理解</span>
           <strong>{selectedRecord.aiUnderstanding.plainSummary}</strong>
+          {selectedRecord.aiUnderstanding.missing.length > 0 && (
+            <ul>
+              {selectedRecord.aiUnderstanding.missing.map((item) => (
+                <li key={item}>待确认：{item}</li>
+              ))}
+            </ul>
+          )}
           <ul>
             {selectedRecord.aiUnderstanding.risks.map((risk) => (
               <li key={risk.text} className={`sb-risk-item sb-risk-item--${risk.level}`}>
@@ -150,6 +193,9 @@ export function RecordsView({
           <span>下一步</span>
           <strong>{selectedRecord.nextStep}</strong>
         </div>
+        <button type="button" className="sb-secondary-button" onClick={handleCopyRecord}>
+          {copied ? "已复制摘要" : "复制整段摘要"}
+        </button>
       </section>
 
       <div className="sb-record-action-bar">

@@ -7,14 +7,32 @@ type View = "landing" | "demo";
 
 function App() {
   const [view, setView] = useState<View>("landing");
+  const [autoJudgeDemo, setAutoJudgeDemo] = useState(false);
 
   if (view === "landing") {
-    return <LandingPage onEnterDemo={() => setView("demo")} />;
+    return (
+      <LandingPage
+        onEnterDemo={() => {
+          setAutoJudgeDemo(false);
+          setView("demo");
+        }}
+        onEnterJudgeDemo={() => {
+          setAutoJudgeDemo(true);
+          setView("demo");
+        }}
+      />
+    );
   }
 
   return (
     <ErrorBoundary onReset={() => setView("landing")}>
-      <DemoPage onBackHome={() => setView("landing")} />
+      <DemoPage
+        onBackHome={() => {
+          setAutoJudgeDemo(false);
+          setView("landing");
+        }}
+        autoStartJudgeDemo={autoJudgeDemo}
+      />
     </ErrorBoundary>
   );
 }

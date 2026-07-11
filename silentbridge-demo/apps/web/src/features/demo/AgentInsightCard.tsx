@@ -5,14 +5,17 @@ import { createTtsPlayer } from "./tts-player";
 export function AgentInsightCard({
   result,
   provider,
-  onConfirmQuestion
+  onConfirmQuestion,
+  onCopySummary
 }: {
   result?: AgentRunResult;
   provider: "proxy" | "fallback";
   onConfirmQuestion: () => void;
+  onCopySummary?: () => void;
 }) {
   const ttsPlayer = useMemo(() => createTtsPlayer(), []);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   if (!result) {
     return null;
@@ -20,6 +23,7 @@ export function AgentInsightCard({
 
   const { understanding } = result;
   const canTts = ttsPlayer.isAvailable() && Boolean(understanding.suggestedQuestion.trim());
+  const providerLabel = provider === "proxy" ? "AI 实时整理" : "离线整理（可用）";
 
   const handleToggleTts = () => {
     if (isSpeaking) {
@@ -35,14 +39,42 @@ export function AgentInsightCard({
     }
   };
 
+  const handleCopy = async () => {
+    const text = [
+      understanding.plainSummary,
+      "",
+      "已确认：",
+      ...understanding.confirmed.map((item) => `· ${item}`),
+      "",
+      "还需确认：",
+      ...understanding.missing.map((item) => `· ${item}`),
+      "",
+      understanding.risks.length > 0 ? "风险：" : "",
+      ...understanding.risks.map((risk) => `· ${risk.text}`),
+      "",
+      `建议确认：${understanding.suggestedQuestion}`
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+      onCopySummary?.();
+    } catch {
+      // ignore clipboard failures in restricted contexts
+    }
+  };
+
   return (
-    <section className="sb-agent-card">
-      <div className="sb-panel-head">
-        <span>小桥理解</span>
-        <strong>已整理出确认点</strong>
-      </div>
-      <div className="sb-agent-provider">
-        {provider === "proxy" ? "GLM-4 实时整理" : "本地规则整理"}
+    <section className="sb-agent-card sb-agent-card--peak" aria-label="AI 理解结果">
+      <div className="sb-agent-peak-banner">
+        <div>
+          <span>核心价值</span>
+          <strong>小桥已整理出确认点</strong>
+        </div>
+        <div className="sb-agent-provider">{providerLabel}</div>
       </div>
 
       <div className="sb-agent-grid">
@@ -55,7 +87,7 @@ export function AgentInsightCard({
           </ul>
         </div>
 
-        <div className="sb-agent-block">
+        <div className="sb-agent-block sb-agent-block--missing">
           <span>还没确认</span>
           <ul>
             {understanding.missing.map((item) => (
@@ -78,11 +110,19 @@ export function AgentInsightCard({
         </div>
       )}
 
+      <div className="sb-agent-question">
+        <span>给对方看的确认问题</span>
+        <strong>{understanding.suggestedQuestion}</strong>
+      </div>
+
       <p className="sb-agent-summary">{understanding.plainSummary}</p>
 
       <div className="sb-agent-actions">
-        <button type="button" className="sb-secondary-button" onClick={onConfirmQuestion}>
+        <button type="button" className="sb-primary-button" onClick={onConfirmQuestion}>
           请对方确认
+        </button>
+        <button type="button" className="sb-secondary-button" onClick={handleCopy}>
+          {copied ? "已复制摘要" : "复制摘要"}
         </button>
         {canTts && (
           <button

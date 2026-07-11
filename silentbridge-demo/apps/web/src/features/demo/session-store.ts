@@ -130,26 +130,36 @@ export function createRecordFromSession(input: {
   const latestRound = input.session.rounds[input.session.rounds.length - 1];
   const understanding = latestRound?.understanding ?? input.flow.aiUnderstanding;
 
-  const transcriptText = latestRound?.transcript.map((line) => line.text).join("").trim();
-  const shortSummary = transcriptText
-    ? transcriptText.length > 42
-      ? `${transcriptText.slice(0, 42)}...`
-      : transcriptText
-    : input.flow.savedRecord.summary;
+  const confirmed = understanding.confirmed.filter(Boolean);
+  const missing = understanding.missing.filter(Boolean);
+  const structuredSummary =
+    understanding.plainSummary?.trim() ||
+    (confirmed.length > 0
+      ? `${confirmed.slice(0, 3).join("；")}${missing[0] ? `。待确认：${missing[0]}` : "。"}`
+      : input.flow.savedRecord.summary);
 
   const isContinuation = Boolean(input.session.continuation);
   const rawParentTitle = input.session.continuation?.parentTitle ?? input.session.sourceLabel;
-  const baseParentTitle = rawParentTitle.replace(/\s*[··]\s*(继续追问|追问)\s*$/, "");
-  const recordTitle = isContinuation ? `${baseParentTitle} · 追问` : input.session.sourceLabel;
+  const baseParentTitle = rawParentTitle.replace(/\s*[··]\s*(继续追问|追问|一键演示)\s*$/g, "");
+  const cleanedSource = input.session.sourceLabel.replace(/\s*[··]\s*(一键演示|继续追问|追问确认|追问)\s*$/g, "");
+  const recordTitle = isContinuation
+    ? `${baseParentTitle} · 追问`
+    : cleanedSource || input.flow.savedRecord.title;
+
+  const keyPoints =
+    confirmed.length > 0
+      ? confirmed.slice(0, 4)
+      : input.flow.savedRecord.keyPoints;
 
   return {
     ...input.flow.savedRecord,
     id: `record-${input.session.id}-r${input.session.rounds.length}`,
     time: "刚刚",
     title: recordTitle,
-    summary: shortSummary,
-    keyPoints: latestRound?.understanding?.confirmed.slice(0, 3) ?? input.flow.savedRecord.keyPoints,
-    nextStep: latestRound?.understanding?.suggestedQuestion ?? input.flow.savedRecord.nextStep,
+    summary: structuredSummary,
+    keyPoints,
+    nextStep: understanding.suggestedQuestion || input.flow.savedRecord.nextStep,
+    actionPhrase: understanding.suggestedQuestion || input.flow.savedRecord.actionPhrase,
     aiUnderstanding: understanding
   };
 }

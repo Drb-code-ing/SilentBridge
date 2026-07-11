@@ -16,15 +16,19 @@ export function normalizeUserText(input: string, fallback: string, maxLength = M
 export function inferFlowIdFromText(text: string): DemoFlowId {
   const value = text.toLowerCase();
 
-  if (/药|吃|疼|过敏|医生|医院|检查|处方/.test(value)) {
+  if (/门诊|急诊|复诊|咽喉炎|胸闷|高烧|医嘱|医生说|医院|检查单|处方/.test(value)) {
+    return "clinic";
+  }
+
+  if (/药|服药|饭后|饭前|禁忌|过敏|药店|药师|胶囊|片剂/.test(value)) {
     return "pharmacy";
   }
 
-  if (/政务|窗口|材料|证件|办理|预约/.test(value)) {
+  if (/政务|窗口|材料|证件|办理|预约|取号|身份证/.test(value)) {
     return "service";
   }
 
-  if (/地铁|路口|马路|哪条路|路怎么走|方向|站台|换乘|出口|几站|问路|指路|迷路/.test(value)) {
+  if (/地铁|路口|马路|哪条路|路怎么走|方向|站台|换乘|出口|几站|问路|指路|迷路|号线/.test(value)) {
     return "traffic";
   }
 
@@ -93,6 +97,8 @@ interface SceneFactExtractor {
 
 function extractFactsByScene(flowId: DemoFlowId, text: string): SceneFactExtractor {
   switch (flowId) {
+    case "clinic":
+      return extractClinicFacts(text);
     case "pharmacy":
       return extractMedicalFacts(text);
     case "service":
@@ -104,41 +110,37 @@ function extractFactsByScene(flowId: DemoFlowId, text: string): SceneFactExtract
   }
 }
 
-function extractMedicalFacts(text: string): SceneFactExtractor {
+
+function extractClinicFacts(text: string): SceneFactExtractor {
   const confirmed: string[] = [];
   const missing: string[] = [];
   const risks: RiskItem[] = [];
 
-  const drugMatch = text.match(/[\u4e00-\u9fa5]{2,6}(片|丸|胶囊|冲剂|口服液|颗粒|糖浆|滴丸|喷剂)/);
-  const dosageMatch = text.match(/(一次\d+(粒|片|丸|颗)|一天\d+次|饭前|饭后|睡前|早晚|每日\d+次|隔\d+小时)/);
-  const contraindicationMatch = text.match(/(不能|避免|禁忌|同服|忌|勿|不要)/);
-  const symptomMatch = text.match(/(疼|炎|烧|咳|晕|过敏|恶心|呕吐|腹泻|头痛|发热|感染|炎症)/);
-  const followUpMatch = text.match(/(复诊|复查|回医院|急诊|随访|回来|再来)/);
+  const diagnosisMatch = text.match(/(咽喉炎|感冒|发烧|发热|咳嗽|过敏|炎症|感染|支气管炎|扁桃体炎|胃炎)/);
+  const dosageParts = [
+    text.match(/饭前|饭后|睡前|空腹/)?.[0],
+    text.match(/连续.{0,4}\d+天|吃\d+天|连服\d+天|一天\d+次|每日\d+次|早晚各一次|一次\d+(粒|片|丸|颗)/)?.[0]
+  ].filter(Boolean) as string[];
+  const followUpMatch = text.match(/(\d+天后.{0,6}复诊|三天后复诊|后天复诊|复诊|复查)/);
+  const emergency = /(胸闷|持续高烧|高烧不退|呼吸困难).{0,16}(急诊|马上|立刻|不能等)|马上去急诊|来急诊/.test(text);
+  const drugMatch = text.match(/[一-龥A-Za-z0-9]{1,10}(片|丸|胶囊|冲剂|口服液|颗粒|糖浆|滴丸|喷剂)/);
+
+  if (diagnosisMatch) {
+    confirmed.push(`判断：${diagnosisMatch[0]}`);
+  } else {
+    missing.push("具体诊断或判断还没有写清");
+  }
+
+  if (dosageParts.length > 0) {
+    confirmed.push(`用药：${Array.from(new Set(dosageParts)).join("，")}`);
+  } else {
+    missing.push("用药剂量和天数还没有确认");
+  }
 
   if (drugMatch) {
     confirmed.push(`药品：${drugMatch[0]}`);
   } else {
     missing.push("药名还没有写下来");
-  }
-
-  if (dosageMatch) {
-    confirmed.push(`用量：${dosageMatch[0]}`);
-  } else {
-    missing.push("用量和服药时间还没有确认");
-  }
-
-  if (contraindicationMatch) {
-    confirmed.push(`禁忌：${contraindicationMatch[0]}`);
-    risks.push({ level: "high", text: "存在用药禁忌提醒，需要明确记下来并遵守。" });
-  } else {
-    missing.push("是否还有禁忌没有说明");
-  }
-
-  if (symptomMatch) {
-    confirmed.push(`症状：${symptomMatch[0]}`);
-    if (!dosageMatch) {
-      risks.push({ level: "medium", text: "有症状描述但未明确用量，建议请医生或药师再确认。" });
-    }
   }
 
   if (followUpMatch) {
@@ -147,8 +149,90 @@ function extractMedicalFacts(text: string): SceneFactExtractor {
     missing.push("复诊时间还没有确认");
   }
 
+  if (emergency) {
+    confirmed.push("急诊红线：胸闷或持续高烧需马上急诊");
+    risks.push({ level: "high", text: "出现胸闷或持续高烧时不能等复诊，应立即急诊。" });
+  } else {
+    missing.push("什么情况要马上急诊还没说明");
+    risks.push({ level: "medium", text: "若缺少急诊红线提醒，回家后可能延误就医。" });
+  }
+
   if (risks.length === 0) {
-    risks.push({ level: "low", text: "用药信息已记录，建议保存后再次核对。" });
+    risks.push({ level: "low", text: "医嘱已记录，建议保存后再次核对药名与复诊时间。" });
+  }
+
+  const parts: string[] = [];
+  if (missing.some((m) => m.includes("药名"))) parts.push("药名");
+  if (missing.some((m) => m.includes("剂量") || m.includes("用药"))) parts.push("每天几次和吃几天");
+  if (missing.some((m) => m.includes("复诊"))) parts.push("复诊时间");
+  if (missing.some((m) => m.includes("急诊"))) parts.push("什么情况要马上去急诊");
+  const suggestedQuestion =
+    parts.length > 0
+      ? `请再写清楚：${parts.join("、")}。`
+      : "请把诊断、用药和急诊注意事项再写一遍，我要保存。";
+
+  return { confirmed, missing, risks, suggestedQuestion };
+}
+
+function extractMedicalFacts(text: string): SceneFactExtractor {
+  const confirmed: string[] = [];
+  const missing: string[] = [];
+  const risks: RiskItem[] = [];
+
+  const drugMatch = text.match(/[一-龥A-Za-z0-9]{1,10}(片|丸|胶囊|冲剂|口服液|颗粒|糖浆|滴丸|喷剂)/);
+  const dosageParts = [
+    text.match(/饭前|饭后|睡前|空腹/)?.[0],
+    text.match(/一天\d+次|每日\d+次|早晚各一次|一次\d+(粒|片|丸|颗)/)?.[0],
+    /早晚/.test(text) ? "早晚" : undefined
+  ].filter(Boolean) as string[];
+  const alcoholRisk = /(不要|不能|避免).{0,8}(酒|酒精)|和酒一起|饮酒同服|忌酒/.test(text);
+  const otherDrugRisk = /(其他药|别的药|正在吃|已经在吃).{0,12}(药|医生)/.test(text);
+  const stopIfUnwell = /(不舒服|明显不适).{0,12}(停用|停药)|先停用/.test(text);
+  const followUpMatch = text.match(/(复诊|复查|回医院|急诊|随访)/);
+  const symptomMatch = text.match(/(咽喉炎|感冒|发烧|发热|咳嗽|过敏|头痛|腹泻|炎症)/);
+
+  if (drugMatch) {
+    confirmed.push(`药品：${drugMatch[0]}`);
+  } else {
+    missing.push("药名还没有写下来");
+  }
+
+  if (dosageParts.length > 0) {
+    confirmed.push(`用法：${Array.from(new Set(dosageParts)).join("，")}`);
+  } else {
+    missing.push("用量和服药时间还没有确认");
+  }
+
+  if (alcoholRisk) {
+    confirmed.push("禁忌：不要和酒一起服用");
+    risks.push({ level: "high", text: "药物和酒同服可能带来风险，需要明确提醒并遵守。" });
+  }
+
+  if (otherDrugRisk) {
+    confirmed.push("注意：若正在服用其他药，需先咨询医生");
+    risks.push({ level: "medium", text: "如果还在服用其他药，最好先咨询医生或药师。" });
+  }
+
+  if (!alcoholRisk && !otherDrugRisk) {
+    missing.push("是否还有禁忌没有说明");
+  }
+
+  if (symptomMatch) {
+    confirmed.push(`相关情况：${symptomMatch[0]}`);
+  }
+
+  if (stopIfUnwell) {
+    confirmed.push("不适处理：明显不舒服先停用并咨询医生");
+  }
+
+  if (followUpMatch) {
+    confirmed.push(`后续：${followUpMatch[0]}`);
+  } else if (!stopIfUnwell) {
+    missing.push("复诊或不适处理还没有确认");
+  }
+
+  if (risks.length === 0) {
+    risks.push({ level: "low", text: "用药信息已记录，建议保存后再次核对药名和用量。" });
   }
 
   const suggestedQuestion = buildMedicalQuestion(missing);
@@ -179,9 +263,9 @@ function extractServiceFacts(text: string): SceneFactExtractor {
   const missing: string[] = [];
   const risks: RiskItem[] = [];
 
-  const materialMatches = text.match(/(身份证|照片|复印件|户口本|材料|证件|申请表|营业执照|社保卡|医保卡)/g);
-  const windowMatch = text.match(/(\d+号窗口|综合业务|办事窗口|服务台)/);
-  const stepMatches = text.match(/(取号|排队|办理|填表|提交|缴费|签字|复印)/g);
+  const materialMatches = text.match(/(身份证原件|身份证|一寸照片|近期照片|照片|复印件|户口本|申请表|营业执照|社保卡|医保卡)/g);
+  const windowMatch = text.match(/(\d+\s*号窗口|综合业务号|综合业务|办事窗口|服务台)/);
+  const stepMatches = text.match(/(取综合业务号|取号|排队|办理|填表|提交|缴费|签字|复印|现场打印)/g);
   const deadlineMatch = text.match(/(今天|明天|后天|上午|下午|截止|月底|工作日|几点|之前)/);
 
   if (materialMatches && materialMatches.length > 0) {
@@ -250,15 +334,15 @@ function extractTrafficFacts(text: string): SceneFactExtractor {
   const missing: string[] = [];
   const risks: RiskItem[] = [];
 
-  const directionMatch = text.match(/(左|右|前|后|往|朝|对面|旁边|直走|拐|转)/);
+  const directionMatch = text.match(/(右手边|左边|右侧|左侧|往前|向前|直走|往市中心|市中心方向|对面)/);
   const lineMatches = text.match(/(\d+号线|\d+路|地铁|公交|轻轨)/g);
-  const stationMatch = text.match(/(\d+站|换乘|出口|入口|站台|站牌|站)/);
+  const stationMatch = text.match(/(人民广场|换乘\s*\d+\s*号线|换乘|[A-Z]\s*出口|\d+\s*号出口|右手边楼梯|楼梯下去|入口|出口|站台)/);
   const distanceMatch = text.match(/(\d+米|远|近|步行|路程|大概)/);
 
   if (directionMatch) {
     confirmed.push(`方向：${directionMatch[0]}`);
-    if (/对面/.test(text)) {
-      risks.push({ level: "high", text: "提到「对面」，走错方向会坐反，需要特别确认。" });
+    if (/对面|坐反|反方向/.test(text)) {
+      risks.push({ level: "high", text: "走到对面站台可能坐反方向，需要特别确认。" });
     }
   } else {
     missing.push("方向还没有说清");
@@ -379,6 +463,12 @@ export function createUnderstandingFromTranscript(input: {
     return input.flow.aiUnderstanding;
   }
 
+  // Prefer curated demo understanding when transcript matches preset captions.
+  const presetText = input.flow.captions.map((line) => line.text).join(" ").trim();
+  if (joinedText === presetText || looksLikePresetDemo(joinedText, presetText)) {
+    return input.flow.aiUnderstanding;
+  }
+
   const extracted = extractFactsByScene(input.flow.id, joinedText);
   const firstFact = joinedText.length > 46 ? `${joinedText.slice(0, 46)}...` : joinedText;
 
@@ -389,6 +479,37 @@ export function createUnderstandingFromTranscript(input: {
     missing: extracted.missing.length > 0 ? extracted.missing : ["请对方再确认一次关键信息"],
     risks: extracted.risks,
     suggestedQuestion: extracted.suggestedQuestion,
-    plainSummary: `对方大意是：${firstFact}`
+    plainSummary: buildPlainSummary(input.flow.id, extracted, firstFact)
   };
+}
+
+function looksLikePresetDemo(actual: string, preset: string) {
+  if (!preset) return false;
+  const normalize = (value: string) => value.replace(/\s+/g, "");
+  const a = normalize(actual);
+  const p = normalize(preset);
+  return a.includes(p.slice(0, Math.min(24, p.length))) || p.includes(a.slice(0, Math.min(24, a.length)));
+}
+
+function buildPlainSummary(
+  flowId: DemoFlowId,
+  extracted: SceneFactExtractor,
+  firstFact: string
+) {
+  if (extracted.confirmed.length >= 2) {
+    const head = extracted.confirmed.slice(0, 3).join("；");
+    const tail =
+      extracted.missing.length > 0 ? `仍需确认：${extracted.missing[0]}` : "关键信息已较完整，建议保存。";
+    return `${head}。${tail}`;
+  }
+
+  if (flowId === "clinic") {
+    return `医生说明了判断、用药与急诊注意事项：${firstFact}`;
+  }
+
+  if (flowId === "pharmacy") {
+    return `对方说明了用药方式与注意事项：${firstFact}`;
+  }
+
+  return `对方大意是：${firstFact}`;
 }

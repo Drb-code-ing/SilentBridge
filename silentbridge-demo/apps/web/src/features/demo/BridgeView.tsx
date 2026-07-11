@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import type { BridgeStep, CaptionLine } from "./demo-content";
 import type { AsrStatus } from "./asr-simulator";
 import type { AgentRunResult } from "./agent-graph";
@@ -47,7 +48,11 @@ export function BridgeView({
   recordingSeconds,
   permissionState,
   onRecoveryAction,
-  audioCaptureFailureReason
+  audioCaptureFailureReason,
+  displayFullscreen = false,
+  onToggleDisplayFullscreen,
+  isJudgeDemo = false,
+  onSkipJudgeDemo
 }: {
   step: BridgeStep;
   message: string;
@@ -81,7 +86,14 @@ export function BridgeView({
   permissionState: string;
   onRecoveryAction: (optionId: RecoveryOption["id"]) => void;
   audioCaptureFailureReason?: AudioCaptureFailureReason;
+  displayFullscreen?: boolean;
+  onToggleDisplayFullscreen?: () => void;
+  isJudgeDemo?: boolean;
+  onSkipJudgeDemo?: () => void;
 }) {
+  const [showBackupInput, setShowBackupInput] = useState(false);
+  const agentCardRef = useRef<HTMLDivElement>(null);
+
   const failureScenario = inferFailureScenario({
     asrStatus,
     agentResult,
@@ -99,6 +111,22 @@ export function BridgeView({
     !isCapturing &&
     visibleCaptions.length > 0 &&
     (Boolean(agentResult) || visibleCaptions.length >= expectedCaptionCount);
+
+  useEffect(() => {
+    if (!agentResult) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      agentCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [agentResult]);
+
+  useEffect(() => {
+    if (failureScenario !== "none") {
+      setShowBackupInput(true);
+    }
+  }, [failureScenario]);
 
   const listenCopy: Record<AsrStatus, { title: string; helper: string; primary: string }> = {
     idle: {
@@ -158,6 +186,18 @@ export function BridgeView({
       : activeListenCopy.primary;
   const primaryListenAction = captionsDone ? onSave : isRecording ? onStopRecording : onUseMicrophone;
 
+  if (displayFullscreen) {
+    return (
+      <div className="sb-view">
+        <DisplayCard
+          message={message}
+          fullscreen
+          onToggleFullscreen={onToggleDisplayFullscreen}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="sb-view">
       <section className="sb-bridge-head">
@@ -166,16 +206,37 @@ export function BridgeView({
         <p className="sb-bridge-source">当前话术：{sourceLabel}</p>
       </section>
 
-      <ProgressDots step={step} />
+      <ProgressDots step={step} hasUnderstanding={Boolean(agentResult)} />
+
+      {isJudgeDemo && (
+        <div className="sb-judge-banner" role="status">
+          <div>
+            <span>自动演示中</span>
+            <strong>无需麦克风，正在展示完整价值闭环</strong>
+          </div>
+          {onSkipJudgeDemo && (
+            <button type="button" className="sb-judge-skip" onClick={onSkipJudgeDemo}>
+              跳过 / 自己操作
+            </button>
+          )}
+        </div>
+      )}
 
       {flowNotice && <div className="sb-flow-notice">{flowNotice}</div>}
-      {sourceLabel.includes("继续追问") && (
-        <div className="sb-continuation-hint">这次会接着上一条记录问，不用重新解释。</div>
+      {(sourceLabel.includes("继续追问") || sourceLabel.includes("当场追问")) && (
+        <div className="sb-continuation-hint">
+          {sourceLabel.includes("当场追问")
+            ? "仍在同一场沟通里继续确认，不用重新开场。"
+            : "这次会接着上一条记录问，不用重新解释。"}
+        </div>
       )}
 
       {step === "show" && (
         <section className="sb-bridge-stage">
-          <DisplayCard message={message} />
+          <DisplayCard
+            message={message}
+            onToggleFullscreen={onToggleDisplayFullscreen}
+          />
           <div className="sb-bridge-actions sb-bridge-actions--show">
             <button type="button" className="sb-primary-button" onClick={onStartListening}>
               对方看完了，开始收听
@@ -276,57 +337,81 @@ export function BridgeView({
               ))}
             </section>
           )}
-          <section className="sb-input-card sb-input-card--reply">
-            <div className="sb-input-card__head">
-              <span>备用输入</span>
-              <button type="button" className="sb-step-back-button" onClick={onBackToShow}>
-                <span>←</span>
-                <strong>给对方看</strong>
-              </button>
+          {captionsDone && agentResult && (
+            <div ref={agentCardRef}>
+              <AgentInsightCard result={agentResult} provider={agentProvider} onConfirmQuestion={onConfirmQuestion} />
             </div>
-            <p className="sb-input-card__hint">如果环境太吵，直接让对方打字或请同行者输入。</p>
-            <label className="sb-input-card__field">
-              <span className="sr-only">对方回复内容</span>
-            <textarea
-              value={replyDraft}
-              onChange={(event) => onReplyDraftChange(event.target.value)}
-              placeholder="请对方直接打字、让同行者帮忙输入，或粘贴转文字结果。"
-              maxLength={280}
-              rows={4}
-            />
-            </label>
-            <div className="sb-capture-toolbar" aria-label="回复输入方式">
-              <button type="button" className="sb-capture-tool" onClick={onUseDemoReply}>
-                <span>✎</span>
-                <strong>填入演示</strong>
-              </button>
-              <button type="button" className="sb-capture-tool" onClick={onProcessReply}>
-                <span>✓</span>
-                <strong>整理回复</strong>
-              </button>
-            </div>
-          </section>
-          {captionsDone && (
+          )}
+          {isAgentLoading({ asrStatus, visibleCaptions, agentResult }) && (
+            <AgentLoadingCard />
+          )}
+          {captionsDone && !agentResult && (
             <div className="sb-summary-card">
               <span>小桥抓到的重点</span>
               <strong>{summaryHighlight}</strong>
             </div>
           )}
           {captionsDone && agentResult && (
-            <AgentInsightCard result={agentResult} provider={agentProvider} onConfirmQuestion={onConfirmQuestion} />
-          )}
-          {isAgentLoading({ asrStatus, visibleCaptions, agentResult }) && (
-            <AgentLoadingCard />
-          )}
-          <aside className="sb-safety-strip">
-            <span>AI 模式</span>
-            <p>{runtimeStatus.privacyNote}</p>
-            <div className="sb-runtime-tags">
-              <span>{agentProvider === "proxy" ? "GLM-4 实时整理" : "本地规则整理"}</span>
-              <span>{runtimeStatus.asrMode === "browser-ready" ? "麦克风已授权" : "手动输入兜底"}</span>
-              <span>不会在前端保存密钥</span>
+            <div className="sb-next-cta-card">
+              <span>下一步</span>
+              <strong>重点已经整理好。可以保存，或请对方确认缺失项。</strong>
+              <button type="button" className="sb-primary-button" onClick={onSave}>
+                保存这次重点
+              </button>
             </div>
-          </aside>
+          )}
+
+          {!isJudgeDemo && (
+            <section className="sb-input-card sb-input-card--reply">
+              <div className="sb-input-card__head">
+                <span>备用输入</span>
+                <button
+                  type="button"
+                  className="sb-step-back-button"
+                  onClick={() => setShowBackupInput((value) => !value)}
+                >
+                  <strong>{showBackupInput ? "收起" : "打不开麦克风时"}</strong>
+                </button>
+              </div>
+              {showBackupInput && (
+                <>
+                  <p className="sb-input-card__hint">环境太吵或识别失败时，让对方打字，或请同行者输入。</p>
+                  <label className="sb-input-card__field">
+                    <span className="sr-only">对方回复内容</span>
+                    <textarea
+                      value={replyDraft}
+                      onChange={(event) => onReplyDraftChange(event.target.value)}
+                      placeholder="请对方直接打字、让同行者帮忙输入，或粘贴转文字结果。"
+                      maxLength={280}
+                      rows={4}
+                    />
+                  </label>
+                  <div className="sb-capture-toolbar" aria-label="回复输入方式">
+                    <button type="button" className="sb-capture-tool" onClick={onUseDemoReply}>
+                      <span>✎</span>
+                      <strong>填入演示</strong>
+                    </button>
+                    <button type="button" className="sb-capture-tool" onClick={onProcessReply}>
+                      <span>✓</span>
+                      <strong>整理回复</strong>
+                    </button>
+                  </div>
+                </>
+              )}
+            </section>
+          )}
+
+          {!isJudgeDemo && (
+            <aside className="sb-safety-strip">
+              <span>沟通辅助说明</span>
+              <p>{runtimeStatus.privacyNote}</p>
+              <div className="sb-runtime-tags">
+                <span>{agentProvider === "proxy" ? "AI 实时整理" : "离线整理可用"}</span>
+                <span>{runtimeStatus.asrMode === "browser-ready" ? "麦克风已授权" : "手动输入兜底"}</span>
+                <span>不会在前端保存密钥</span>
+              </div>
+            </aside>
+          )}
         </section>
       )}
     </div>
