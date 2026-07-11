@@ -235,7 +235,7 @@ export function BridgeView({
         </div>
       )}
 
-      {!isJudgeDemo && sessionRounds.length > 0 && <RoundTimeline rounds={sessionRounds} />}
+      {sessionRounds.length > 0 && <RoundTimeline rounds={sessionRounds} />}
 
       {step === "show" && (
         <section className="sb-bridge-stage">
@@ -247,6 +247,11 @@ export function BridgeView({
             <button type="button" className="sb-primary-button" onClick={onStartListening}>
               对方看完了，开始收听
             </button>
+            {sessionRounds.length > 0 && (
+              <button type="button" className="sb-secondary-button" onClick={onSave}>
+                先保存已整理的重点
+              </button>
+            )}
             <div className="sb-bridge-toolstrip" aria-label="其他操作">
               <button type="button" className="sb-tool-button" onClick={onOpenPhrases}>
                 <span>句</span>
