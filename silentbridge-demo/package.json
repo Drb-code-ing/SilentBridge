@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "SilentBridge 无声桥 - AI 听障沟通副驾驶 初赛 Demo",
   "type": "module",
+  "packageManager": "pnpm@9.15.9",
   "scripts": {
     "dev": "pnpm --filter @silentbridge/web dev",
     "dev:api": "pnpm --filter @silentbridge/api dev",

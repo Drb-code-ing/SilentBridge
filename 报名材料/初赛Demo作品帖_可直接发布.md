@@ -156,7 +156,8 @@ pnpm dev
 # http://127.0.0.1:5173/
 ```
 
-- 公网链接：`（部署完成后填入，例如 https://xxxx.vercel.app）`
+- 公网链接：`（部署完成后填入，例如 https://silentbridge-xxx.vercel.app）`  
+  部署步骤见仓库：`silentbridge-demo/DEPLOY.md`
 
 #### 推荐 60 秒体验路径
 

@@ -9,9 +9,18 @@
 
 ## 在线体验
 
-> 部署完成后在此填入 Vercel 链接：`https://<project>.vercel.app`
+> 部署完成后填入：`https://<your-project>.vercel.app`  
+> 部署步骤见 [DEPLOY.md](./DEPLOY.md)
 
-## 核心功能
+本地开发：
+
+```bash
+pnpm install
+pnpm dev        # 前端 http://localhost:5173
+pnpm dev:api    # 后端 http://localhost:8787（可选）
+pnpm dev:all    # 前后端同时
+```
+
 
 ### 4 个真实场景
 

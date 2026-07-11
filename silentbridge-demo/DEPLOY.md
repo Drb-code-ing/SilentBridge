@@ -1,87 +1,125 @@
-# SilentBridge Vercel 部署指引
+# SilentBridge Vercel 部署指引（初赛）
 
 ## 前置条件
 
-1. GitHub 账号 + 本项目已推送到 GitHub 仓库
-2. Vercel 账号（https://vercel.com，可用 GitHub 登录）
-3. 智谱 API Key（https://bigmodel.cn 注册，GLM-4-Flash 永久免费）
+1. 代码已推送到 GitHub：`https://github.com/Drb-code-ing/SilentBridge`
+2. Vercel 账号（可用 GitHub 登录）：https://vercel.com/signup
+3. （可选）智谱 Key：https://bigmodel.cn  
+   （可选）百度语音 Key：https://console.bce.baidu.com/ai/#/ai/speech/overview/index  
+   **没有 Key 也能部署**：前端会走本地规则引擎 / 演示字幕，Demo 仍可完整体验。
 
-## 部署步骤
+---
 
-### 1. 推送代码到 GitHub
+## 推荐：网页导入（最稳）
 
-```bash
-cd e:\SilentBridge_无声桥
-git add -A
-git commit -m "feat: real LLM integration + landing page + error boundary"
-git push origin main
-```
+### 1. 导入仓库
 
-### 2. 在 Vercel 导入项目
+1. 打开 https://vercel.com/new  
+2. 选择仓库 **`Drb-code-ing/SilentBridge`**  
+3. 配置：
 
-1. 登录 https://vercel.com/dashboard
-2. 点击 "Add New..." → "Project"
-3. 选择 GitHub 仓库 "SilentBridge_无声桥"
-4. 配置项目：
-   - **Root Directory**: `silentbridge-demo`
-   - **Framework Preset**: Vite（或 Other）
-   - **Build Command**: `pnpm install --no-frozen-lockfile && pnpm build`（应自动读取 vercel.json）
-   - **Output Directory**: `apps/web/dist`（应自动读取 vercel.json）
-   - **Install Command**: `pnpm install`
+| 配置项 | 值 |
+|---|---|
+| **Root Directory** | `silentbridge-demo`（点 Edit 选中该目录） |
+| Framework Preset | Other |
+| Build Command | `pnpm build`（或留空，读 vercel.json） |
+| Output Directory | `apps/web/dist` |
+| Install Command | `pnpm install --no-frozen-lockfile` |
 
-### 3. 配置环境变量
+> 关键：**Root Directory 必须是 `silentbridge-demo`**，不要用仓库根目录。
 
-在 Vercel 项目的 "Settings" → "Environment Variables" 中添加：
+### 2. 环境变量（可选但推荐）
 
-| Name | Value | Environments |
-|---|---|---|
-| `ZHIPU_API_KEY` | 你的智谱 API Key | Production, Preview, Development |
+Project → Settings → Environment Variables，对 Production / Preview 都勾选：
 
-获取 API Key：
-1. 访问 https://bigmodel.cn 注册
-2. 进入控制台 → API Keys → 创建新 Key
-3. 复制 Key 填入 Vercel
+| Name | 说明 |
+|---|---|
+| `ZHIPU_API_KEY` | 智谱 GLM-4-Flash，AI 实时整理 |
+| `BAIDU_API_KEY` | 百度语音（可选） |
+| `BAIDU_SECRET_KEY` | 百度语音（可选） |
 
-### 4. 部署
+本地 `.env.local` **不要提交**；只在 Vercel 后台填。
 
-点击 "Deploy" 按钮，等待构建完成（约 1-2 分钟）。
+### 3. Deploy
 
-### 5. 验证
+点 **Deploy**，等 1–3 分钟。
 
-部署成功后，访问 Vercel 分配的域名（如 `https://silentbridge.vercel.app`）：
+成功后会得到类似：
 
-1. **首页验证**：应显示 Landing Page（产品介绍）
-2. **演示验证**：点击"进入演示" → 选择场景 → 收听 → 查看 AI 重点提炼
-3. **API 健康检查**：访问 `https://<your-domain>/api/health`
-   - 应返回 `{"ok": true, "hasZhipuKey": true, ...}`
-4. **LLM 验证**：在演示中输入语音或文字，AI 模式指示器应显示"GLM-4 实时整理"
-5. **降级验证**：临时删除环境变量重新部署，应显示"本地规则整理"
+`https://silentbridge-demo-xxxx.vercel.app`
+
+---
+
+## 部署后 5 分钟验收
+
+把域名记为 `YOUR_URL`：
+
+1. 打开 `YOUR_URL`  
+   - 应直接进入产品（首页：开始一次沟通 / 常用场景）
+2. 点 **医院问诊** → 出示 → 演示字幕或手动输入 → 有重点/风险  
+3. 点底部 **沟通**（冷启动）→ 应是 **通用沟通**，不是医院  
+4. 保存摘要 → 刷新 → 记录仍在  
+5. 打开 `YOUR_URL/api/health`  
+   - 应返回 JSON：`{"ok":true,...}`  
+   - 配了智谱则 `hasZhipuKey: true`
+
+---
+
+## 部署后要改的文档
+
+1. `报名材料/初赛Demo作品帖_可直接发布.md`  
+   - 把体验地址占位换成 `YOUR_URL`
+2. `silentbridge-demo/README.md`  
+   - 「在线体验」一栏填链接
+3. 社区 Demo 帖正文贴上链接 + 截图
+
+---
 
 ## 常见问题
 
-### Q: 部署后 API 返回 404
+### API 404
 
-A: 检查 `vercel.json` 的 rewrites 配置是否正确指向 `apps/api/src/server.ts`。Vercel 可能需要在 Root Directory 设置为 `silentbridge-demo`。
+- 确认 Root Directory = `silentbridge-demo`
+- 确认 `vercel.json` 的 rewrite 指向 `apps/api/src/server.ts`
+- 重新 Deploy
 
-### Q: LLM 调用超时
+### 构建失败 pnpm not found
 
-A: GLM-4-Flash 首次调用可能有冷启动延迟。代码中已设置 12s 超时，超时会自动降级到规则引擎。
+- Install Command 设为 `pnpm install --no-frozen-lockfile`
+- 仓库已写 `packageManager: pnpm@9.15.9`
 
-### Q: 构建失败 "pnpm not found"
+### 只有前端、AI 一直「本地规则」
 
-A: 在 Vercel 项目设置中确保 Install Command 为 `pnpm install`，Vercel 会自动检测 pnpm。
+- 正常：未配 `ZHIPU_API_KEY` 时会降级  
+- 配上 Key 后 Redeploy
 
-### Q: 前端能访问但 API 不可用
+### 麦克风在 HTTPS 才稳定
 
-A: 检查环境变量 `ZHIPU_API_KEY` 是否已配置。未配置时后端返回 fallback，前端会降级到规则引擎（演示仍可用，但 LLM 功能不生效）。
+- Vercel 默认 HTTPS，比本地 localhost 更接近真实评审环境
 
-## 部署后清单
+---
 
-- [ ] 在线链接可访问
-- [ ] Landing Page 正常显示
-- [ ] 进入演示后场景切换正常
-- [ ] 语音转写或手动输入可用
-- [ ] AI 重点提炼显示"GLM-4 实时整理"
-- [ ] /api/health 返回 hasZhipuKey: true
-- [ ] 移动端 390px 无溢出
-- [ ] 将在线链接填入 README.md 和证据链记录表
+## CLI 部署（可选）
+
+若已登录 Vercel CLI：
+
+```bash
+cd silentbridge-demo
+npx vercel login
+npx vercel --yes
+# 生产环境
+npx vercel --prod --yes
+```
+
+首次会引导关联项目；同样建议在 Dashboard 把 Root Directory 设为 `silentbridge-demo`。
+
+---
+
+## 初赛提交最小闭环
+
+- [ ] Vercel 部署成功  
+- [ ] 公网链接可打开  
+- [ ] `/api/health` 正常  
+- [ ] 医院场景 + 通用冷启动都测过  
+- [ ] 链接写入 Demo 帖  
+- [ ] 录 20–40 秒操作路径  
