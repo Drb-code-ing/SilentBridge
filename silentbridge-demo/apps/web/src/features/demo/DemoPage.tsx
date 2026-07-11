@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   defaultFlowId,
   defaultMessage,
+  defaultSourceLabel,
   demoFlows,
+  flowLabels,
   initialRecords,
   quickScenarios,
   type AppTab,
@@ -80,10 +82,12 @@ export function DemoPage({
   const [bridgeSourceLabel, setBridgeSourceLabel] = useState(
     autoStartJudgeDemo
       ? `${quickScenarios[0]?.title ?? "医院问诊"} · 一键演示`
-      : restoredDraft?.bridgeSourceLabel ?? "默认开场白"
+      : restoredDraft?.bridgeSourceLabel ?? defaultSourceLabel
   );
   const [activeFlowId, setActiveFlowId] = useState<DemoFlowId>(
-    autoStartJudgeDemo ? quickScenarios[0]?.id ?? defaultFlowId : restoredDraft?.activeFlowId ?? defaultFlowId
+    autoStartJudgeDemo
+      ? quickScenarios[0]?.id ?? defaultFlowId
+      : restoredDraft?.activeFlowId ?? defaultFlowId
   );
   const [activeSession, setActiveSession] = useState<CommunicationSession>(
     () =>
@@ -93,7 +97,7 @@ export function DemoPage({
             flowId: autoStartJudgeDemo ? quickScenarios[0]?.id ?? defaultFlowId : defaultFlowId,
             sourceLabel: autoStartJudgeDemo
               ? `${quickScenarios[0]?.title ?? "医院问诊"} · 一键演示`
-              : "默认开场白",
+              : defaultSourceLabel,
             prompt: autoStartJudgeDemo
               ? quickScenarios[0]?.message ?? defaultMessage
               : defaultMessage
@@ -139,6 +143,17 @@ export function DemoPage({
   const [a11y, setA11y] = useState<A11yPreferences>(() => loadA11yPreferences());
   const speechCaptureRef = useRef<BrowserSpeechCaptureController>();
   const audioRecorderRef = useRef<AudioRecorder | null>(null);
+  // 用户是否主动选过场景/话术/示例；未选择时点「开桥」不得落到医院场景
+  const sessionChosenRef = useRef(
+    Boolean(
+      autoStartJudgeDemo ||
+        (restoredDraft &&
+          (restoredDraft.activeSession.rounds.length > 0 ||
+            restoredDraft.visibleCaptions.length > 0 ||
+            Boolean(restoredDraft.agentResult) ||
+            restoredDraft.activeFlowId !== "generic"))
+    )
+  );
 
   useEffect(() => {
     persistA11yPreferences(a11y);
@@ -415,9 +430,10 @@ export function DemoPage({
 
   const openBridge = (
     message = defaultMessage,
-    sourceLabel = "默认开场白",
+    sourceLabel = defaultSourceLabel,
     flowId: DemoFlowId = defaultFlowId
   ) => {
+    sessionChosenRef.current = true;
     clearBridgeProgressDraft();
     setFlowNotice(undefined);
     const nextSession = createCommunicationSession({ flowId, sourceLabel, prompt: message });
@@ -700,6 +716,24 @@ export function DemoPage({
   const handleTabChange = (tab: AppTab) => {
     if (tab === "records") {
       setRecordsMode("list");
+    }
+
+    if (tab === "bridge") {
+      const hasProgress =
+        activeSession.rounds.length > 0 ||
+        visibleCaptions.length > 0 ||
+        Boolean(agentResult) ||
+        isCapturing ||
+        asrStatus === "listening" ||
+        asrStatus === "transcribing" ||
+        asrStatus === "requesting" ||
+        asrStatus === "fallback";
+
+      // 直接点底部「开桥」且没有进行中的沟通：开通用会话，禁止默认医院
+      if (!hasProgress && !sessionChosenRef.current) {
+        openBridge(defaultMessage, defaultSourceLabel, "generic");
+        return;
+      }
     }
 
     setActiveTab(tab);
@@ -1087,7 +1121,10 @@ export function DemoPage({
     setCaptureMode("idle");
     setFlowNotice(undefined);
     setHomeMessageDraft(defaultMessage);
-    openBridge(defaultMessage, "默认开场白", defaultFlowId);
+    sessionChosenRef.current = false;
+    openBridge(defaultMessage, defaultSourceLabel, "generic");
+    // openBridge 会把 chosen 设 true；新沟通是显式通用，保持 true 但 flow=generic
+    sessionChosenRef.current = true;
   };
 
   const handleDeleteRecord = (id: string) => {
@@ -1110,7 +1147,9 @@ export function DemoPage({
     stopJudgeDemo();
     const message = normalizeUserText(homeMessageDraft, defaultMessage);
     const flowId = inferFlowIdFromText(message);
-    openBridge(message, "自由输入", flowId);
+    const sourceLabel =
+      flowId === "generic" ? defaultSourceLabel : `${flowLabels[flowId]} · 自由输入`;
+    openBridge(message, sourceLabel, flowId);
   };
 
   const handleSkipJudgeDemo = () => {

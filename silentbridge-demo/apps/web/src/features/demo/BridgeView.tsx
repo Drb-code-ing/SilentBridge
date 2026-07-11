@@ -248,9 +248,13 @@ export function BridgeView({
   return (
     <div className="sb-view">
       <section className="sb-bridge-head">
-        <p className="sb-kicker">沟通中</p>
+        <p className="sb-kicker">沟通中 · {sourceLabel}</p>
         <h1>{step === "show" ? "出示给对方" : "收听并整理"}</h1>
-        <p className="sb-bridge-source">{sourceLabel}</p>
+        <p className="sb-bridge-source">
+          {step === "show"
+            ? "把手机递给对方看这句话"
+            : "对方说完后停止，再整理重点"}
+        </p>
       </section>
 
       <ProgressDots step={step} hasUnderstanding={Boolean(agentResult)} />

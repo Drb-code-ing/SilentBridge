@@ -24,7 +24,7 @@ export function HomeView({
       <section className="sb-page-title">
         <p className="sb-kicker">无声桥</p>
         <h1>开始一次沟通</h1>
-        <p className="sb-section-hint">选场景或写开场白，出示给对方，再收听整理重点。</p>
+        <p className="sb-section-hint">先选场景最稳妥；不选场景则按通用沟通处理，不会默认成医院。</p>
       </section>
 
       <section className="sb-section">

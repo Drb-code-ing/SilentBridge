@@ -73,9 +73,20 @@ export interface DemoFlow {
   savedRecord: SavedRecordTemplate;
 }
 
-export const defaultFlowId: DemoFlowId = "clinic";
+/** 冷启动 / 未选场景时使用通用沟通，禁止默认当成就医 */
+export const defaultFlowId: DemoFlowId = "generic";
 
 export const defaultMessage = "我听不见，但可以看文字。请说慢一点，关键信息请写下来。";
+
+export const defaultSourceLabel = "通用沟通";
+
+export const flowLabels: Record<DemoFlowId, string> = {
+  clinic: "医院问诊",
+  pharmacy: "药店问药",
+  service: "政务窗口",
+  traffic: "临时问路",
+  generic: "通用沟通"
+};
 
 export const quickScenarios: QuickScenario[] = [
   {
@@ -438,7 +449,7 @@ export const phrasePacks: PhrasePack[] = [
 
 export const tabLabels: Record<AppTab, { label: string; mark: string }> = {
   home: { label: "首页", mark: "首" },
-  bridge: { label: "开桥", mark: "桥" },
+  bridge: { label: "沟通", mark: "通" },
   records: { label: "记录", mark: "记" },
   phrases: { label: "话术", mark: "句" }
 };

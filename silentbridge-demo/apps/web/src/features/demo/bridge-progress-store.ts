@@ -3,10 +3,10 @@ import type { AsrStatus } from "./asr-simulator";
 import type { AgentRunResult } from "./agent-graph";
 import type { CommunicationSession } from "./session-types";
 
-const STORAGE_KEY = "silentbridge.bridgeProgress.v1";
+const STORAGE_KEY = "silentbridge.bridgeProgress.v2";
 const appTabs = ["home", "bridge", "records", "phrases"] as const satisfies readonly AppTab[];
 const bridgeSteps = ["show", "listen"] as const satisfies readonly BridgeStep[];
-const demoFlowIds = ["pharmacy", "service", "traffic", "generic"] as const satisfies readonly DemoFlowId[];
+const demoFlowIds = ["clinic", "pharmacy", "service", "traffic", "generic"] as const satisfies readonly DemoFlowId[];
 const agentProviders = ["proxy", "fallback"] as const;
 
 export interface BridgeProgressDraft {
@@ -97,7 +97,7 @@ export function loadBridgeProgressDraft(): BridgeProgressDraft | undefined {
       activeTab: parsed.activeTab,
       bridgeStep: parsed.bridgeStep,
       displayMessage: stringOr(parsed.displayMessage, ""),
-      bridgeSourceLabel: stringOr(parsed.bridgeSourceLabel, "默认开场白"),
+      bridgeSourceLabel: stringOr(parsed.bridgeSourceLabel, "通用沟通"),
       activeFlowId: parsed.activeFlowId,
       activeSession: parsed.activeSession,
       visibleCaptions: agentResult ? restoredCaptions : [],

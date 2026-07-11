@@ -115,5 +115,10 @@ describe("createUnderstandingFromTranscript", () => {
     expect(inferFlowIdFromText("药店药师说这个胶囊饭后吃")).toBe("pharmacy");
     expect(inferFlowIdFromText("到3号窗口办理需要身份证")).toBe("service");
     expect(inferFlowIdFromText("地铁2号线怎么换乘")).toBe("traffic");
+    // 默认开场白不得误判为就医
+    expect(inferFlowIdFromText("我听不见，但可以看文字。请说慢一点，关键信息请写下来。")).toBe(
+      "generic"
+    );
+    expect(inferFlowIdFromText("你好")).toBe("generic");
   });
 });
